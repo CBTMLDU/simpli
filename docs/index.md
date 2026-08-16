@@ -1,4 +1,4 @@
-# 0. Simulating Life in GROMACS
+# 0. Simulating Bits and Pieces of Life in GROMACS
 
 Let me start with an uncomfortable question: how much molecular dynamics
 work ever reaches a patient?
