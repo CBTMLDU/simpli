@@ -1,0 +1,52 @@
+/* Interactive widget frames ------------------------------------------- */
+.widget-frame {
+  width: 100%;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 3px;
+  margin: 1.4rem 0;
+  display: block;
+}
+
+/* Videos --------------------------------------------------------------- */
+figure.workshop-video { margin: 1.6rem 0; }
+figure.workshop-video video,
+figure.workshop-video iframe {
+  width: 100%;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 3px;
+  display: block;
+}
+figure.workshop-video figcaption {
+  font-size: .78rem;
+  line-height: 1.5;
+  color: var(--md-default-fg-color--light);
+  margin-top: .5rem;
+}
+figure.workshop-video figcaption .credit {
+  display: block;
+  margin-top: .25rem;
+  font-style: italic;
+  opacity: .8;
+}
+
+/* Slightly roomier body text for long teaching pages -------------------- */
+.md-typeset { font-size: .78rem; }
+.md-typeset h2 { margin-top: 2.2em; }
+
+/* Figures ---------------------------------------------------------------- */
+.md-typeset figure:not(.workshop-video) {
+  margin: 1.6rem 0;
+}
+.md-typeset figure:not(.workshop-video) img {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 3px;
+  display: block;
+}
+.md-typeset figure:not(.workshop-video) figcaption {
+  font-size: .74rem;
+  line-height: 1.5;
+  color: var(--md-default-fg-color--light);
+  margin-top: .5rem;
+  max-width: none;
+  text-align: left;
+}

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy of nvt.mdp — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+
+    --c-comment:#8A929B;
+    --c-run:#7A5C1E;
+    --c-out:#2F6B4F;
+    --c-bond:#1B4D8F;
+    --c-inter:#9E2B25;
+    --c-temp:#B0562A;
+    --c-vel:#5F4B8B;
+
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+    --fs-file:13px;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,40px) 28px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+
+.callout{
+    background:#fff;border:1px solid var(--rule);border-left:3px solid var(--c-temp);
+    border-radius:3px;padding:13px 15px;margin:0 0 24px;max-width:66ch;
+    font-size:14px;color:var(--ink-soft);
+  }
+  .callout b{color:var(--ink)}
+  .callout code{font-family:var(--mono);font-size:12px;color:var(--ink)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 16px;padding:0;list-style:none}
+  .legend li{font-family:var(--mono);font-size:11px;font-weight:500;
+    padding:3px 8px;border:1px solid currentColor;border-radius:2px}
+  .k-run{color:var(--c-run)} .k-out{color:var(--c-out)}
+  .k-bond{color:var(--c-bond)} .k-inter{color:var(--c-inter)}
+  .k-temp{color:var(--c-temp)} .k-vel{color:var(--c-vel)}
+
+  .viewer{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    overflow:auto;max-height:46vh;-webkit-overflow-scrolling:touch}
+  pre.file{font-family:var(--mono);font-size:var(--fs-file);line-height:1.75;
+    margin:0;padding:16px 16px 6px;white-space:pre;color:var(--ink)}
+
+  .f{border-radius:2px;padding:1px 0;cursor:pointer;transition:background .12s ease;
+    text-decoration:underline;text-decoration-color:rgba(0,0,0,.18);
+    text-underline-offset:3px;text-decoration-thickness:1px}
+  .f:hover,.f:focus-visible,.f.active{background:rgba(0,0,0,.07);outline:none;
+    text-decoration-color:currentColor}
+  .f:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+
+  .r-comment{color:var(--c-comment)} .r-run{color:var(--c-run)}
+  .r-out{color:var(--c-out)} .r-bond{color:var(--c-bond)}
+  .r-inter{color:var(--c-inter)} .r-temp{color:var(--c-temp)}
+  .r-vel{color:var(--c-vel)}
+
+  .card{position:sticky;bottom:12px;margin-top:14px;background:var(--ink);
+    color:#EDEFF2;border-radius:3px;padding:16px 18px;min-height:104px;z-index:3}
+  .card .slot{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:#8F98A3;margin:0 0 6px}
+  .card h3{font-size:17px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14px;color:#C4CBD3;max-width:72ch}
+  .card.empty h3,.card.empty p{color:#6E7884}
+
+  .hint{font-size:12px;color:var(--ink-soft);margin:12px 0 0;max-width:64ch}
+  footer{margin-top:40px;font-size:12px;color:var(--ink-soft);max-width:66ch;
+    border-top:1px solid var(--rule);padding-top:16px}
+  footer code{font-family:var(--mono);font-size:11px}
+
+  @media (max-width:620px){ :root{--fs-file:11px} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="callout">
+    <b>This is where the file gets long.</b> Minimisation needed almost nothing.
+    Real dynamics needs a timestep, a thermostat, bond constraints and starting
+    velocities — none of which existed before. Every new line here is doing a job that
+    only makes sense once atoms are allowed to move.
+  </div>
+
+  <ul class="legend">
+    <li class="k-run">the run itself</li>
+    <li class="k-out">what to save</li>
+    <li class="k-bond">bond handling</li>
+    <li class="k-inter">interactions</li>
+    <li class="k-temp">thermostat</li>
+    <li class="k-vel">velocities</li>
+  </ul>
+
+  <div class="viewer">
+<pre class="file" id="file"><span class="f r-comment" data-t="title" data-d="A free-text label that gets copied into the log file. Purely for your own benefit later, when you are staring at six output directories trying to remember which was which.">title       = NVT equilibration</span>
+<span class="f r-vel" data-t="define = -DPOSRES" data-d="Here is the payoff from posre.itp. This one line switches on the springs holding your protein's heavy atoms near their starting positions. The water is left free to move and reorganise around a protein that stays put. Leave this line out and the restraints are simply ignored — which is exactly what we do for the production run.">define      = -DPOSRES</span>
+
+<span class="f r-run" data-t="integrator = md" data-d="No longer 'steep'. This is the leap-frog integrator, which actually solves Newton's equations of motion step by step. From this point on we have real dynamics: atoms have velocities, time passes, and the system evolves.">integrator  = md</span>
+<span class="f r-run" data-t="dt — the timestep" data-d="THE most fundamental number in molecular dynamics. 0.002 ps is 2 femtoseconds — the size of each tick of the clock. It must be short enough to capture the fastest motion in the system, which is why it is so tiny, and it is the reason reaching microseconds takes so long. This is the 'femtosecond resolution' we talked about earlier.">dt          = 0.002</span>
+<span class="f r-run" data-t="nsteps — how long" data-d="The number of steps to run. Multiply by dt to get the actual simulated time: 50000 x 0.002 ps = 100 ps. That is a common length for temperature equilibration — long enough to settle, short enough to finish quickly.">nsteps      = 50000</span>
+
+<span class="f r-out" data-t="Output frequency" data-d="How often to write things down. nstenergy saves energy values, nstlog updates the log, and nstxout-compressed saves coordinates to the trajectory. Saving too often produces enormous files; too rarely and you lose detail you needed. Every 500 steps here means once per picosecond.">nstenergy            = 500
+nstlog               = 500
+nstxout-compressed   = 500</span>
+
+<span class="f r-bond" data-t="continuation = no" data-d="Tells GROMACS this is a fresh start rather than a continuation of an earlier run. It matters because constraints need to be applied to the starting structure first. For the NPT stage that follows, this becomes 'yes'.">continuation         = no</span>
+<span class="f r-bond" data-t="constraints = h-bonds" data-d="This is what makes the 2 fs timestep possible. The fastest vibration in the system is a bond involving hydrogen, which oscillates about every 10 fs — far too fast for our timestep to follow. So we freeze those bonds at a fixed length instead of simulating their vibration. LINCS is the algorithm that enforces it. Without this trick you would need a 1 fs timestep or shorter, doubling your computing cost.">constraint_algorithm = lincs
+constraints          = h-bonds
+lincs_iter           = 1
+lincs_order          = 4</span>
+
+<span class="f r-inter" data-t="Neighbour searching" data-d="Which atom pairs to bother computing, and how often to refresh that list. Verlet is the modern GPU-friendly scheme. With Verlet, nstlist is adjusted automatically by GROMACS for performance, so the exact value matters less than it once did.">cutoff-scheme        = Verlet
+nstlist              = 20</span>
+<span class="f r-inter" data-t="van der Waals — force-switch" data-d="These settings are specific to CHARMM36. The force-switch modifier smoothly brings the van der Waals force to zero between 1.0 and 1.2 nm, rather than chopping it off abruptly. CHARMM36 was parameterised this way, so using different settings would mean using the force field incorrectly. AMBER force fields expect a plain cutoff instead — another reason not to mix conventions.">vdwtype              = cutoff
+vdw-modifier         = force-switch
+rvdw-switch          = 1.0
+rvdw                 = 1.2</span>
+<span class="f r-inter" data-t="Electrostatics — PME" data-d="Particle Mesh Ewald again, handling long-range electrostatic forces including across periodic images. pme_order and fourierspacing control the accuracy of the grid calculation; the defaults are well tested and rarely need changing.">coulombtype          = PME
+rcoulomb             = 1.2
+pme_order            = 4
+fourierspacing       = 0.16</span>
+
+<span class="f r-temp" data-t="tcoupl — the thermostat" data-d="V-rescale is the velocity-rescaling thermostat. It nudges atoms faster or slower to hold the target temperature, and unlike the older Berendsen method it produces a correct distribution of energies — which matters if you intend to analyse the results rather than just warm the system up. Nose-Hoover is the other good choice.">tcoupl               = V-rescale</span>
+<span class="f r-temp" data-t="tc-grps — coupling groups" data-d="The thermostat is applied separately to the protein and to everything else. This is done because solute and solvent can heat at different rates, and coupling them as one group can let the protein sit at a different temperature from the water around it — the so-called hot solvent, cold solute problem.">tc-grps              = Protein Non-Protein</span>
+<span class="f r-temp" data-t="tau_t and ref_t" data-d="ref_t is the target temperature in kelvin — one value per group, so 300 K for both here. tau_t is how quickly the thermostat corrects deviations, in picoseconds. Too aggressive and it interferes with the natural dynamics; 0.1 ps is a well-tested compromise.">tau_t                = 0.1   0.1
+ref_t                = 300   300</span>
+
+<span class="f r-run" data-t="pcoupl = no" data-d="This single line is what makes it NVT rather than NPT. No pressure coupling means the box keeps exactly the size we gave it. We deal with pressure in the next stage, one variable at a time.">pcoupl               = no</span>
+<span class="f r-inter" data-t="pbc = xyz" data-d="Periodic boundary conditions in all three directions — the Snake-game behaviour, still switched on.">pbc                  = xyz</span>
+
+<span class="f r-vel" data-t="gen_vel = yes" data-d="This is the moment the system comes alive. Every atom is handed a random starting velocity drawn from the Maxwell-Boltzmann distribution for the target temperature. Before this line, nothing was moving at all.">gen_vel              = yes</span>
+<span class="f r-vel" data-t="gen_temp" data-d="The temperature used to draw those starting velocities. Normally the same as ref_t, so the system begins at roughly the temperature you want rather than having to be warmed up to it.">gen_temp             = 300</span>
+<span class="f r-vel" data-t="gen_seed — the replica knob" data-d="The random seed for generating velocities. This is the single most important line for making independent replicas: same structure, different seed, completely different trajectory. A value of -1 tells GROMACS to pick a seed itself. If you want reproducible replicas you should set explicit different values instead, and record them.">gen_seed             = -1</span></pre>
+  </div>
+
+  <div class="card empty" id="card" role="status" aria-live="polite">
+    <p class="slot">Setting detail</p>
+    <h3>Hover or tap a setting</h3>
+    <p>Each line is one instruction. Anything you leave out simply takes its default value.</p>
+  </div>
+
+  <p class="hint">
+    Compare this with <code>minim.mdp</code>: the timestep, the thermostat, the constraints
+    and the velocity lines are all new. They exist because atoms are now allowed to move.
+  </p>
+
+  <footer>
+    Run it with
+    <code>gmx grompp -f nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr</code>
+    then <code>gmx mdrun -v -deffnm nvt</code>. The <code>-r</code> flag supplies the
+    reference structure the position restraints pull towards.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var card    = document.getElementById('card');
+  var elTitle = card.querySelector('h3');
+  var elDesc  = card.querySelector('p:not(.slot)');
+  var defT = elTitle.textContent, defD = elDesc.textContent;
+  var pinned = null;
+
+  function show(el){
+    card.classList.remove('empty');
+    elTitle.textContent = el.getAttribute('data-t');
+    elDesc.textContent  = el.getAttribute('data-d');
+  }
+  function reset(){
+    if (pinned){ show(pinned); return; }
+    card.classList.add('empty');
+    elTitle.textContent = defT;
+    elDesc.textContent  = defD;
+  }
+
+  var fields = document.querySelectorAll('.f');
+  for (var i = 0; i < fields.length; i++){
+    (function(el){
+      el.setAttribute('tabindex','0');
+      el.addEventListener('mouseenter', function(){ show(el); });
+      el.addEventListener('mouseleave', reset);
+      el.addEventListener('focus',      function(){ show(el); });
+      el.addEventListener('blur',       reset);
+      el.addEventListener('click', function(e){
+        e.preventDefault();
+        if (pinned === el){ pinned.classList.remove('active'); pinned = null; reset(); }
+        else {
+          if (pinned) pinned.classList.remove('active');
+          pinned = el; el.classList.add('active'); show(el);
+        }
+      });
+    })(fields[i]);
+  }
+})();
+</script>
+</body>
+</html>

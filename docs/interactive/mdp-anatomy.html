@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy of an .mdp file — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+
+    --c-comment:#8A929B;
+    --c-run:#7A5C1E;
+    --c-stop:#2F6B4F;
+    --c-neigh:#1B4D8F;
+    --c-inter:#9E2B25;
+    --c-pbc:#5F4B8B;
+
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+    --fs-file:13px;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,40px) 28px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+
+.triad{
+    display:flex;flex-wrap:wrap;gap:8px;margin:0 0 26px;padding:0;list-style:none;
+  }
+  .triad li{
+    flex:1 1 200px;background:#fff;border:1px solid var(--rule);border-radius:3px;
+    padding:11px 13px;font-size:13px;color:var(--ink-soft);
+  }
+  .triad b{display:block;font-family:var(--mono);font-size:12px;
+    color:var(--ink);font-weight:700;margin-bottom:3px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 16px;padding:0;list-style:none}
+  .legend li{font-family:var(--mono);font-size:11px;font-weight:500;
+    padding:3px 8px;border:1px solid currentColor;border-radius:2px}
+  .k-run{color:var(--c-run)} .k-stop{color:var(--c-stop)}
+  .k-neigh{color:var(--c-neigh)} .k-inter{color:var(--c-inter)}
+  .k-pbc{color:var(--c-pbc)} .k-comment{color:var(--c-comment)}
+
+  .viewer{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    overflow:auto;max-height:46vh;-webkit-overflow-scrolling:touch}
+  pre.file{font-family:var(--mono);font-size:var(--fs-file);line-height:1.8;
+    margin:0;padding:16px 16px 6px;white-space:pre;color:var(--ink)}
+
+  .f{border-radius:2px;padding:1px 0;cursor:pointer;transition:background .12s ease;
+    text-decoration:underline;text-decoration-color:rgba(0,0,0,.18);
+    text-underline-offset:3px;text-decoration-thickness:1px}
+  .f:hover,.f:focus-visible,.f.active{background:rgba(0,0,0,.07);outline:none;
+    text-decoration-color:currentColor}
+  .f:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+
+  .r-run{color:var(--c-run)} .r-stop{color:var(--c-stop)}
+  .r-neigh{color:var(--c-neigh)} .r-inter{color:var(--c-inter)}
+  .r-pbc{color:var(--c-pbc)} .r-comment{color:var(--c-comment)}
+
+  .card{position:sticky;bottom:12px;margin-top:14px;background:var(--ink);
+    color:#EDEFF2;border-radius:3px;padding:16px 18px;min-height:100px;z-index:3}
+  .card .slot{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:#8F98A3;margin:0 0 6px}
+  .card h3{font-size:17px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14px;color:#C4CBD3;max-width:72ch}
+  .card.empty h3,.card.empty p{color:#6E7884}
+
+  .hint{font-size:12px;color:var(--ink-soft);margin:12px 0 0;max-width:62ch}
+  footer{margin-top:40px;font-size:12px;color:var(--ink-soft);max-width:66ch;
+    border-top:1px solid var(--rule);padding-top:16px}
+
+  @media (max-width:620px){ :root{--fs-file:11px} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<ul class="triad">
+    <li><b>.gro</b>Where every atom is</li>
+    <li><b>.top</b>How every atom behaves</li>
+    <li><b>.mdp</b>What we want done to them</li>
+  </ul>
+
+  <ul class="legend">
+    <li class="k-comment">comment</li>
+    <li class="k-run">what to run</li>
+    <li class="k-stop">when to stop</li>
+    <li class="k-neigh">neighbour list</li>
+    <li class="k-inter">interactions</li>
+    <li class="k-pbc">boundary</li>
+  </ul>
+
+  <div class="viewer">
+<pre class="file" id="file"><span class="f r-comment" data-t="Comments" data-d="Anything after a semicolon is ignored. An .mdp file is just a plain list of settings, one per line, in the form option = value. Order does not matter, and any setting you leave out simply takes its default value.">; ions.mdp - used by grompp to generate ions.tpr</span>
+
+<span class="f r-run" data-t="integrator" data-d="The single most important line: it decides WHAT KIND of run this is. 'steep' means steepest-descent energy minimisation, which simply walks downhill to remove bad contacts. For an actual simulation you would put 'md' here instead, which integrates Newton's equations of motion. Same file format, completely different job.">integrator  = steep</span>
+<span class="f r-stop" data-t="emtol" data-d="The stopping condition for minimisation. When the largest force on any atom falls below this value, in kJ/mol/nm, the job is finished. It is a way of saying 'stop once nothing is badly strained any more' rather than fixing a number of steps.">emtol       = 1000.0</span>
+<span class="f r-stop" data-t="emstep" data-d="How big a step to take while walking downhill. Too large and it overshoots; too small and it crawls. The default is sensible and rarely needs changing.">emstep      = 0.01</span>
+<span class="f r-stop" data-t="nsteps" data-d="The maximum number of steps allowed. A safety limit, so the job cannot run forever if it never reaches emtol. Note that for ions.mdp none of this actually runs — genion only needs the file to exist so grompp can build a .tpr.">nsteps      = 50000</span>
+
+<span class="f r-neigh" data-t="cutoff-scheme" data-d="How GROMACS keeps track of which atoms are near each other. Checking every atom against every other atom would be impossibly slow, so it keeps a list of nearby neighbours instead. 'Verlet' is the modern, GPU-friendly choice and is what you should use.">cutoff-scheme   = Verlet</span>
+<span class="f r-neigh" data-t="nstlist" data-d="How often that neighbour list is refreshed, in steps. Atoms move, so the list goes stale and must be rebuilt periodically.">nstlist         = 1</span>
+
+<span class="f r-inter" data-t="coulombtype" data-d="How electrostatic forces are handled. 'cutoff' simply ignores charges beyond a certain distance, which is crude but fine here. For a real simulation you would use PME instead, which properly accounts for long-range electrostatics — and PME is exactly why the box must be electrically neutral, which is the whole reason we are adding ions.">coulombtype     = cutoff</span>
+<span class="f r-inter" data-t="rcoulomb" data-d="The distance, in nanometres, beyond which electrostatic interactions are cut off. Remember this number when choosing your box size: the molecule must sit further from the box edge than this, or it would start feeling its own periodic image.">rcoulomb        = 1.0</span>
+<span class="f r-inter" data-t="rvdw" data-d="The same idea for van der Waals forces. These fall off much faster with distance than electrostatics, so a plain cutoff is perfectly reasonable for them.">rvdw            = 1.0</span>
+
+<span class="f r-pbc" data-t="pbc" data-d="Switches on periodic boundary conditions in all three directions — the Snake-game behaviour where leaving one face means re-entering from the opposite one. Almost always xyz.">pbc             = xyz</span></pre>
+  </div>
+
+  <div class="card empty" id="card" role="status" aria-live="polite">
+    <p class="slot">Setting detail</p>
+    <h3>Hover or tap a setting</h3>
+    <p>Each line is one instruction. Anything you leave out takes its default value.</p>
+  </div>
+
+  <p class="hint">
+    This particular file is close to a formality — <code>genion</code> never runs a
+    simulation. But the same format, with different values, drives every stage that follows.
+  </p>
+
+  <footer>
+    Generate the packaged file with
+    <code>gmx grompp -f ions.mdp -c solvated.gro -p topol.top -o ions.tpr</code>,
+    then hand it to <code>gmx genion</code>.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var card    = document.getElementById('card');
+  var elTitle = card.querySelector('h3');
+  var elDesc  = card.querySelector('p:not(.slot)');
+  var defT = elTitle.textContent, defD = elDesc.textContent;
+  var pinned = null;
+
+  function show(el){
+    card.classList.remove('empty');
+    elTitle.textContent = el.getAttribute('data-t');
+    elDesc.textContent  = el.getAttribute('data-d');
+  }
+  function reset(){
+    if (pinned){ show(pinned); return; }
+    card.classList.add('empty');
+    elTitle.textContent = defT;
+    elDesc.textContent  = defD;
+  }
+
+  var fields = document.querySelectorAll('.f');
+  for (var i = 0; i < fields.length; i++){
+    (function(el){
+      el.setAttribute('tabindex','0');
+      el.addEventListener('mouseenter', function(){ show(el); });
+      el.addEventListener('mouseleave', reset);
+      el.addEventListener('focus',      function(){ show(el); });
+      el.addEventListener('blur',       reset);
+      el.addEventListener('click', function(e){
+        e.preventDefault();
+        if (pinned === el){ pinned.classList.remove('active'); pinned = null; reset(); }
+        else {
+          if (pinned) pinned.classList.remove('active');
+          pinned = el; el.classList.add('active'); show(el);
+        }
+      });
+    })(fields[i]);
+  }
+})();
+</script>
+</body>
+</html>

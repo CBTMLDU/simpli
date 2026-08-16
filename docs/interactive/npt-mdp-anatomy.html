@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy of npt.mdp — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+
+    --c-comment:#8A929B;
+    --c-run:#7A5C1E;
+    --c-out:#2F6B4F;
+    --c-bond:#1B4D8F;
+    --c-inter:#9E2B25;
+    --c-temp:#B0562A;
+    --c-pres:#5F4B8B;
+
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+    --fs-file:13px;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,40px) 28px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+
+.callout{
+    background:#fff;border:1px solid var(--rule);border-left:3px solid var(--c-pres);
+    border-radius:3px;padding:13px 15px;margin:0 0 24px;max-width:66ch;
+    font-size:14px;color:var(--ink-soft);
+  }
+  .callout b{color:var(--ink)}
+  .callout code{font-family:var(--mono);font-size:12px;color:var(--ink)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 16px;padding:0;list-style:none}
+  .legend li{font-family:var(--mono);font-size:11px;font-weight:500;
+    padding:3px 8px;border:1px solid currentColor;border-radius:2px}
+  .k-run{color:var(--c-run)} .k-out{color:var(--c-out)}
+  .k-bond{color:var(--c-bond)} .k-inter{color:var(--c-inter)}
+  .k-temp{color:var(--c-temp)} .k-pres{color:var(--c-pres)}
+
+  .viewer{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    overflow:auto;max-height:46vh;-webkit-overflow-scrolling:touch}
+  pre.file{font-family:var(--mono);font-size:var(--fs-file);line-height:1.75;
+    margin:0;padding:16px 16px 6px;white-space:pre;color:var(--ink)}
+
+  .f{border-radius:2px;padding:1px 0;cursor:pointer;transition:background .12s ease;
+    text-decoration:underline;text-decoration-color:rgba(0,0,0,.18);
+    text-underline-offset:3px;text-decoration-thickness:1px}
+  .f:hover,.f:focus-visible,.f.active{background:rgba(0,0,0,.07);outline:none;
+    text-decoration-color:currentColor}
+  .f:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+  .f.new{background:rgba(95,75,139,.10)}
+
+  .r-comment{color:var(--c-comment)} .r-run{color:var(--c-run)}
+  .r-out{color:var(--c-out)} .r-bond{color:var(--c-bond)}
+  .r-inter{color:var(--c-inter)} .r-temp{color:var(--c-temp)}
+  .r-pres{color:var(--c-pres)}
+
+  .card{position:sticky;bottom:12px;margin-top:14px;background:var(--ink);
+    color:#EDEFF2;border-radius:3px;padding:16px 18px;min-height:104px;z-index:3}
+  .card .slot{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:#8F98A3;margin:0 0 6px}
+  .card h3{font-size:17px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14px;color:#C4CBD3;max-width:72ch}
+  .card.empty h3,.card.empty p{color:#6E7884}
+
+  .hint{font-size:12px;color:var(--ink-soft);margin:12px 0 0;max-width:64ch}
+  footer{margin-top:40px;font-size:12px;color:var(--ink-soft);max-width:66ch;
+    border-top:1px solid var(--rule);padding-top:16px}
+  footer code{font-family:var(--mono);font-size:11px}
+
+  @media (max-width:620px){ :root{--fs-file:11px} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="callout">
+    <b>Two of the changes are about continuing, two are about pressure.</b>
+    <code>continuation = yes</code> and <code>gen_vel = no</code> say
+    "carry on from where NVT left off, do not start again". The
+    <code>pcoupl</code> block lets the box change size for the first time.
+    Everything else is unchanged.
+  </div>
+
+  <ul class="legend">
+    <li class="k-run">the run itself</li>
+    <li class="k-out">what to save</li>
+    <li class="k-bond">bond handling</li>
+    <li class="k-inter">interactions</li>
+    <li class="k-temp">thermostat</li>
+    <li class="k-pres">barostat / new</li>
+  </ul>
+
+  <div class="viewer">
+<pre class="file" id="file"><span class="f r-comment" data-t="title" data-d="A free-text label copied into the log file, purely for your own benefit later.">title       = NPT equilibration</span>
+<span class="f r-pres" data-t="define = -DPOSRES" data-d="The position restraints stay switched on. The protein is still being held in place while its surroundings settle — this time while the box itself is adjusting. They come off only for the production run.">define      = -DPOSRES</span>
+
+<span class="f r-run" data-t="integrator, dt, nsteps" data-d="Unchanged from NVT. Leap-frog dynamics, a 2 femtosecond timestep, and 50000 steps giving 100 ps of simulated time. A hundred picoseconds is a common length for this stage too.">integrator  = md
+dt          = 0.002
+nsteps      = 50000</span>
+
+<span class="f r-out" data-t="Output frequency" data-d="Unchanged. Energies, log updates and compressed coordinates saved every 500 steps, which is once per picosecond.">nstenergy            = 500
+nstlog               = 500
+nstxout-compressed   = 500</span>
+
+<span class="f r-pres new" data-t="continuation = yes  ← CHANGED" data-d="In NVT this said 'no'. Now it says yes, telling GROMACS that this is a continuation rather than a fresh start — so it should not re-apply constraints to the starting structure as though it had never seen it before. Small line, but it is part of what makes the handover clean.">continuation         = yes</span>
+<span class="f r-bond" data-t="Bond constraints" data-d="Unchanged from NVT. Bonds involving hydrogen are frozen at fixed length by the LINCS algorithm, which is what allows the 2 femtosecond timestep.">constraint_algorithm = lincs
+constraints          = h-bonds
+lincs_iter           = 1
+lincs_order          = 4</span>
+
+<span class="f r-inter" data-t="Neighbour searching and van der Waals" data-d="Unchanged. The force-switch settings here are specific to CHARMM36 — the force field was parameterised this way, so changing them would mean using it incorrectly.">cutoff-scheme        = Verlet
+nstlist              = 20
+vdwtype              = cutoff
+vdw-modifier         = force-switch
+rvdw-switch          = 1.0
+rvdw                 = 1.2</span>
+<span class="f r-inter" data-t="Electrostatics — PME" data-d="Unchanged. Particle Mesh Ewald handling long-range electrostatic forces, including across the periodic images.">coulombtype          = PME
+rcoulomb             = 1.2
+pme_order            = 4
+fourierspacing       = 0.16</span>
+
+<span class="f r-temp" data-t="Thermostat" data-d="Unchanged from NVT. The velocity-rescaling thermostat continues to hold the temperature at 300 K, applied separately to the protein and to everything else. Temperature control does not stop just because we have added pressure control — NPT means both are held.">tcoupl               = V-rescale
+tc-grps              = Protein Non-Protein
+tau_t                = 0.1   0.1
+ref_t                = 300   300</span>
+
+<span class="f r-pres new" data-t="pcoupl = C-rescale  ← THE MAIN CHANGE" data-d="In NVT this line said 'no'. Switching it on is what turns NVT into NPT. C-rescale is stochastic cell rescaling — it gently grows or shrinks the box to bring the pressure toward the target. It is a refinement of the older Berendsen barostat which, like the Berendsen thermostat, held the average well but produced incorrect fluctuations. C-rescale fixes that, so it is safe to use for data you intend to analyse.">pcoupl               = C-rescale</span>
+<span class="f r-pres new" data-t="pcoupltype = isotropic" data-d="The box is rescaled equally in all three directions, keeping its shape. This is right for a molecule in solution. For a membrane system you would use 'semiisotropic' instead, so the bilayer plane and the direction perpendicular to it can adjust independently — a membrane must be free to change its area per lipid without being squeezed by the box.">pcoupltype           = isotropic</span>
+<span class="f r-pres new" data-t="tau_p, ref_p, compressibility" data-d="ref_p is the target pressure — 1 bar, roughly atmospheric. tau_p is how quickly the barostat responds, in picoseconds; it is deliberately slower than the thermostat because pressure is a noisy quantity and reacting too fast would make the box oscillate. The compressibility value is that of water, telling the barostat how much the system resists being squeezed.">tau_p                = 2.0
+ref_p                = 1.0
+compressibility      = 4.5e-5</span>
+<span class="f r-pres" data-t="refcoord_scaling = com" data-d="A small but important detail when using position restraints together with pressure coupling. As the box rescales, the reference positions the springs pull towards are moved along with it, based on the centre of mass. Without this, the box would shrink while the restraint targets stayed put, quietly straining your molecule.">refcoord_scaling     = com</span>
+
+<span class="f r-inter" data-t="pbc = xyz" data-d="Periodic boundary conditions in all three directions, still switched on.">pbc                  = xyz</span>
+
+<span class="f r-pres new" data-t="gen_vel = no  ← CHANGED" data-d="In NVT this said 'yes' and every atom was handed a random velocity. Now it says no, because the system is already moving and already at temperature. Generating fresh velocities here would throw away the entire NVT equilibration. The existing motion is carried over through the checkpoint file supplied with the -t flag.">gen_vel              = no</span></pre>
+  </div>
+
+  <div class="card empty" id="card" role="status" aria-live="polite">
+    <p class="slot">Setting detail</p>
+    <h3>Hover or tap a setting</h3>
+    <p>Purple shading marks the lines that differ from nvt.mdp.</p>
+  </div>
+
+  <p class="hint">
+    Notice how little changed. Once you understand one .mdp file, the rest are variations
+    on it — which is the point of reading them line by line now.
+  </p>
+
+  <footer>
+    Run it with
+    <code>gmx grompp -f npt.mdp -c nvt.gro -r nvt.gro -t nvt.cpt -p topol.top -o npt.tpr</code>
+    then <code>gmx mdrun -v -deffnm npt</code>. The <code>-t</code> flag carries over the
+    full state — velocities included — from the NVT run.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var card    = document.getElementById('card');
+  var elTitle = card.querySelector('h3');
+  var elDesc  = card.querySelector('p:not(.slot)');
+  var defT = elTitle.textContent, defD = elDesc.textContent;
+  var pinned = null;
+
+  function show(el){
+    card.classList.remove('empty');
+    elTitle.textContent = el.getAttribute('data-t');
+    elDesc.textContent  = el.getAttribute('data-d');
+  }
+  function reset(){
+    if (pinned){ show(pinned); return; }
+    card.classList.add('empty');
+    elTitle.textContent = defT;
+    elDesc.textContent  = defD;
+  }
+
+  var fields = document.querySelectorAll('.f');
+  for (var i = 0; i < fields.length; i++){
+    (function(el){
+      el.setAttribute('tabindex','0');
+      el.addEventListener('mouseenter', function(){ show(el); });
+      el.addEventListener('mouseleave', reset);
+      el.addEventListener('focus',      function(){ show(el); });
+      el.addEventListener('blur',       reset);
+      el.addEventListener('click', function(e){
+        e.preventDefault();
+        if (pinned === el){ pinned.classList.remove('active'); pinned = null; reset(); }
+        else {
+          if (pinned) pinned.classList.remove('active');
+          pinned = el; el.classList.add('active'); show(el);
+        }
+      });
+    })(fields[i]);
+  }
+})();
+</script>
+</body>
+</html>

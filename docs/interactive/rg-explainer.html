@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What radius of gyration measures — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+    --atom:#1B4D8F;
+    --com:#9E2B25;
+    --ring:#2F6B4F;
+    --good:#2F6B4F;
+    --warn:#B0562A;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,36px) 28px;
+  }
+  .wrap{max-width:940px;margin:0 auto}
+
+.stage{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start}
+  @media (max-width:760px){ .stage{grid-template-columns:1fr} }
+
+  .canvas-box{background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+  svg{display:block;width:100%;height:auto}
+
+  .panel{background:#fff;border:1px solid var(--rule);border-radius:3px;padding:16px 16px 18px}
+  .panel h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 12px}
+
+  .readout .val{font-family:var(--mono);font-size:34px;font-weight:700;
+    letter-spacing:-.02em;line-height:1;display:block}
+  .readout .unit{font-family:var(--mono);font-size:13px;color:var(--ink-soft);
+    font-weight:500;margin-left:2px}
+  .meter{height:8px;background:var(--paper-2);border-radius:2px;
+    overflow:hidden;margin-top:10px}
+  .meter i{display:block;height:100%;width:0;background:var(--ring);
+    transition:width .12s linear,background .2s ease}
+
+  .comps{display:flex;gap:8px;margin:12px 0 16px}
+  .comps div{
+    flex:1;background:var(--paper-2);border-radius:3px;padding:8px 9px;
+  }
+  .comps span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:600;margin-bottom:2px}
+  .comps b{font-family:var(--mono);font-size:15px;font-weight:700}
+
+  .ctrl{margin:0 0 13px}
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;font-weight:500;margin-bottom:5px}
+  .ctrl label span{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  input[type=range]{width:100%;accent-color:var(--atom);margin:0}
+  .ctrl.rigid label{color:var(--ink-soft)}
+  .ctrl.rigid input[type=range]{accent-color:var(--ink-soft)}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+  .presets button{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:6px 11px;border:1px solid var(--rule);background:#fff;
+    color:var(--ink);border-radius:3px;cursor:pointer;
+  }
+  .presets button:hover{background:var(--paper-2)}
+  .presets button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+  .note{margin:16px 0 0;background:var(--ink);color:#C4CBD3;border-radius:3px;
+    padding:13px 15px;font-size:13.5px;min-height:78px}
+  .note b{color:#fff;display:block;margin-bottom:3px;font-size:13px}
+
+  .formula{margin:20px 0 0;background:#fff;border:1px solid var(--rule);border-radius:3px;
+    padding:14px 16px;font-size:13.5px;color:var(--ink-soft);max-width:68ch}
+  .formula code{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+  .formula b{color:var(--ink)}
+
+  footer{margin-top:28px;font-size:12px;color:var(--ink-soft);max-width:64ch;
+    border-top:1px solid var(--rule);padding-top:14px}
+
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="stage">
+    <div class="canvas-box">
+      <svg id="scene" viewBox="0 0 520 340" role="img"
+           aria-label="A model chain molecule with its centre of mass and radius of gyration shown">
+        <defs>
+          <pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse">
+            <path d="M26 0 L0 0 0 26" fill="none" stroke="#EEF1F4" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="520" height="340" fill="url(#grid)"/>
+        <circle id="rgRing" cx="260" cy="170" r="0" fill="none"
+                stroke="var(--ring)" stroke-width="1.8" stroke-dasharray="6 4" opacity=".85"/>
+        <g id="spokes" stroke="var(--com)" stroke-width="1" opacity=".18"></g>
+        <g id="bonds" stroke="#2B3038" stroke-width="6" stroke-linecap="round"></g>
+        <g id="atoms"></g>
+        <g id="comMark" stroke="var(--com)" stroke-width="2.2">
+          <line id="cm1" x1="0" y1="0" x2="0" y2="0"/>
+          <line id="cm2" x1="0" y1="0" x2="0" y2="0"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <h2>Radius of gyration</h2>
+      <div class="readout">
+        <span class="val" id="rgVal">0.00<span class="unit">Å</span></span>
+        <div class="meter"><i id="meterBar"></i></div>
+      </div>
+
+      <div class="comps">
+        <div><span>spread x</span><b id="rgx">0.00</b></div>
+        <div><span>spread y</span><b id="rgy">0.00</b></div>
+      </div>
+
+      <div class="ctrl">
+        <label>Fold it up <span id="foldOut">50%</span></label>
+        <input type="range" id="fold" min="0" max="100" value="50" step="1">
+      </div>
+      <div class="ctrl">
+        <label>Stretch sideways <span id="strOut">0%</span></label>
+        <input type="range" id="str" min="0" max="90" value="0" step="1">
+      </div>
+      <div class="ctrl rigid">
+        <label>Rotate it <span id="rotOut">0°</span></label>
+        <input type="range" id="rot" min="-180" max="180" value="0" step="1">
+      </div>
+      <div class="ctrl rigid">
+        <label>Move it across <span id="drfOut">0.0 Å</span></label>
+        <input type="range" id="drf" min="-90" max="90" value="0" step="1">
+      </div>
+
+      <div class="presets">
+        <button data-p="folded">Folded</button>
+        <button data-p="unfolded">Unfolded</button>
+        <button data-p="stretched">Stretched</button>
+        <button data-p="move">Just move it</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note">
+    <b>Try "Folded", then "Unfolded".</b>
+    Watch the green circle grow as the chain opens out. That circle is Rg — when the
+    atoms sit further from the centre, the number goes up.
+  </div>
+
+  <div class="formula">
+    <b>The arithmetic.</b> Find the centre of the molecule, measure how far every atom
+    sits from it, square those distances, average them, take the square root:
+    <code>Rg = √( Σ mᵢ|rᵢ − centre|² ⁄ Σ mᵢ )</code>.
+    Heavier atoms count for more, which is why it is called mass-weighted.
+    The two component numbers add up neatly:
+    <code>Rg² = (spread x)² + (spread y)²</code> — in three dimensions there is a z as well.
+  </div>
+
+  <footer>
+    A two-dimensional chain of twelve atoms, drawn with equal masses for clarity.
+    Real Rg works the same way in three dimensions, with real atomic masses.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var N   = 12;
+  var PX  = 16;            // pixels per angstrom
+  var L   = 1.55 * PX;     // bond length in pixels
+  var CX  = 260, CY = 170;
+  var MAX_METER = 7;       // angstrom, full bar
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var gAtoms = document.getElementById('atoms');
+  var gBonds = document.getElementById('bonds');
+  var gSpk   = document.getElementById('spokes');
+  var ring   = document.getElementById('rgRing');
+  var cm1    = document.getElementById('cm1');
+  var cm2    = document.getElementById('cm2');
+
+  var elFold = document.getElementById('fold');
+  var elStr  = document.getElementById('str');
+  var elRot  = document.getElementById('rot');
+  var elDrf  = document.getElementById('drf');
+
+  var elVal  = document.getElementById('rgVal');
+  var elBar  = document.getElementById('meterBar');
+  var elRgx  = document.getElementById('rgx');
+  var elRgy  = document.getElementById('rgy');
+  var elNote = document.getElementById('note');
+  var oFold  = document.getElementById('foldOut');
+  var oStr   = document.getElementById('strOut');
+  var oRot   = document.getElementById('rotOut');
+  var oDrf   = document.getElementById('drfOut');
+
+  function rad(d){ return d * Math.PI / 180; }
+
+  // Chain: curls into a compact coil as `fold` rises, opens to a zigzag at 0
+  function chain(fold){
+    var turn = rad(fold / 100 * 27);
+    var p = [{x:0, y:0}], a = 0;
+    for (var i = 0; i < N - 1; i++){
+      a += turn + rad(i % 2 ? 16 : -16);
+      p.push({ x: p[i].x + L*Math.cos(a), y: p[i].y + L*Math.sin(a) });
+    }
+    return p;
+  }
+
+  function centroid(p){
+    var cx = 0, cy = 0;
+    for (var i = 0; i < p.length; i++){ cx += p[i].x; cy += p[i].y; }
+    return { x: cx/p.length, y: cy/p.length };
+  }
+
+  function clear(g){ while (g.firstChild) g.removeChild(g.firstChild); }
+
+  function update(){
+    var fold = +elFold.value, str = +elStr.value;
+    var rot  = +elRot.value,  drf = +elDrf.value;
+
+    // shape
+    var p = chain(fold);
+    var c = centroid(p);
+    p = p.map(function(q){ return { x:q.x - c.x, y:q.y - c.y }; });
+
+    // stretch sideways, area roughly preserved
+    var k = 1 + str/100;
+    p = p.map(function(q){ return { x:q.x * k, y:q.y / k }; });
+
+    // Rg measured on the shape alone — before any rigid movement
+    var sx = 0, sy = 0;
+    for (var i = 0; i < p.length; i++){ sx += p[i].x*p[i].x; sy += p[i].y*p[i].y; }
+    var ex = Math.sqrt(sx / p.length) / PX;
+    var ey = Math.sqrt(sy / p.length) / PX;
+    var rg = Math.sqrt(ex*ex + ey*ey);
+
+    // rigid-body placement, which must not affect the number
+    var th = rad(rot), co = Math.cos(th), si = Math.sin(th);
+    var shown = p.map(function(q){
+      return { x: CX + drf + q.x*co - q.y*si, y: CY + q.x*si + q.y*co };
+    });
+    var com = { x: CX + drf, y: CY };
+
+    // draw
+    clear(gAtoms); clear(gBonds); clear(gSpk);
+    for (var b = 0; b < shown.length - 1; b++){
+      var ln = document.createElementNS(svgNS, 'line');
+      ln.setAttribute('x1', shown[b].x);   ln.setAttribute('y1', shown[b].y);
+      ln.setAttribute('x2', shown[b+1].x); ln.setAttribute('y2', shown[b+1].y);
+      gBonds.appendChild(ln);
+    }
+    for (var s = 0; s < shown.length; s++){
+      var sp = document.createElementNS(svgNS, 'line');
+      sp.setAttribute('x1', com.x); sp.setAttribute('y1', com.y);
+      sp.setAttribute('x2', shown[s].x); sp.setAttribute('y2', shown[s].y);
+      gSpk.appendChild(sp);
+
+      var ci = document.createElementNS(svgNS, 'circle');
+      ci.setAttribute('cx', shown[s].x); ci.setAttribute('cy', shown[s].y);
+      ci.setAttribute('r', 9);
+      ci.setAttribute('fill', 'var(--atom)');
+      gAtoms.appendChild(ci);
+    }
+
+    ring.setAttribute('cx', com.x);
+    ring.setAttribute('cy', com.y);
+    ring.setAttribute('r', rg * PX);
+
+    cm1.setAttribute('x1', com.x - 7); cm1.setAttribute('y1', com.y);
+    cm1.setAttribute('x2', com.x + 7); cm1.setAttribute('y2', com.y);
+    cm2.setAttribute('x1', com.x); cm2.setAttribute('y1', com.y - 7);
+    cm2.setAttribute('x2', com.x); cm2.setAttribute('y2', com.y + 7);
+
+    elVal.innerHTML = rg.toFixed(2) + '<span class="unit">Å</span>';
+    elBar.style.width = Math.min(100, rg / MAX_METER * 100) + '%';
+    elBar.style.background = rg < 3.2 ? 'var(--good)' : rg < 4.6 ? 'var(--warn)' : 'var(--com)';
+    elRgx.textContent = ex.toFixed(2);
+    elRgy.textContent = ey.toFixed(2);
+
+    oFold.textContent = fold + '%';
+    oStr.textContent  = str + '%';
+    oRot.textContent  = rot + '°';
+    oDrf.textContent  = (drf / PX).toFixed(1) + ' Å';
+
+    // guidance
+    var moved = Math.abs(rot) > 4 || Math.abs(drf) > 4;
+    var msg;
+    if (moved && str < 6 && fold > 70){
+      msg = '<b>Nothing happened to the number.</b> You rotated and moved the whole ' +
+            'molecule, and Rg did not budge — because it only measures distances inside ' +
+            'the molecule, never where it sits in the box. Compare this with RMSD, which ' +
+            'would have shot up. This is why Rg needs no superimposing.';
+    } else if (str > 25){
+      msg = '<b>Look at the two component numbers.</b> Stretching sideways pushed the ' +
+            'x spread up and squeezed the y spread down. The overall Rg changed far less ' +
+            'than the shape did — which is exactly the weakness of Rg. It reports size, ' +
+            'not shape. The components are what tell you the molecule went long and thin.';
+    } else if (fold < 25){
+      msg = '<b>Opened out.</b> The atoms now sit far from the centre, so Rg is high and ' +
+            'the circle is wide. This is what unfolding looks like on an Rg plot — a ' +
+            'line that climbs and keeps climbing.';
+    } else if (fold > 80){
+      msg = '<b>Coiled up tight.</b> Every atom sits close to the centre, so Rg is small. ' +
+            'A folded protein looks like this, and its Rg plot is a flat, low line.';
+    } else {
+      msg = '<b>Somewhere in between.</b> Drag "Fold it up" to either end and watch the ' +
+            'circle grow and shrink. Then try "Rotate" and "Move" and watch the number ' +
+            'refuse to change.';
+    }
+    elNote.innerHTML = msg;
+  }
+
+  [elFold, elStr, elRot, elDrf].forEach(function(el){
+    el.addEventListener('input', update);
+  });
+
+  document.querySelectorAll('.presets button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var p = b.getAttribute('data-p');
+      if (p === 'folded')    { elFold.value = 100; elStr.value = 0;  elRot.value = 0;  elDrf.value = 0; }
+      if (p === 'unfolded')  { elFold.value = 5;   elStr.value = 0;  elRot.value = 0;  elDrf.value = 0; }
+      if (p === 'stretched') { elFold.value = 100; elStr.value = 70; elRot.value = 0;  elDrf.value = 0; }
+      if (p === 'move')      { elFold.value = 100; elStr.value = 0;  elRot.value = 140; elDrf.value = 70; }
+      update();
+    });
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>

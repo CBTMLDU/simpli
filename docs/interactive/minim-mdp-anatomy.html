@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy of minim.mdp — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+
+    --c-comment:#8A929B;
+    --c-run:#7A5C1E;
+    --c-stop:#2F6B4F;
+    --c-neigh:#1B4D8F;
+    --c-inter:#9E2B25;
+    --c-pbc:#5F4B8B;
+
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+    --fs-file:13px;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,40px) 28px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+
+.callout{
+    background:#fff;border:1px solid var(--rule);border-left:3px solid var(--c-inter);
+    border-radius:3px;padding:13px 15px;margin:0 0 24px;max-width:66ch;
+    font-size:14px;color:var(--ink-soft);
+  }
+  .callout b{color:var(--ink)}
+  .callout code{font-family:var(--mono);font-size:12px;color:var(--ink)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 16px;padding:0;list-style:none}
+  .legend li{font-family:var(--mono);font-size:11px;font-weight:500;
+    padding:3px 8px;border:1px solid currentColor;border-radius:2px}
+  .k-run{color:var(--c-run)} .k-stop{color:var(--c-stop)}
+  .k-neigh{color:var(--c-neigh)} .k-inter{color:var(--c-inter)}
+  .k-pbc{color:var(--c-pbc)} .k-comment{color:var(--c-comment)}
+
+  .viewer{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    overflow:auto;max-height:46vh;-webkit-overflow-scrolling:touch}
+  pre.file{font-family:var(--mono);font-size:var(--fs-file);line-height:1.8;
+    margin:0;padding:16px 16px 6px;white-space:pre;color:var(--ink)}
+
+  .f{border-radius:2px;padding:1px 0;cursor:pointer;transition:background .12s ease;
+    text-decoration:underline;text-decoration-color:rgba(0,0,0,.18);
+    text-underline-offset:3px;text-decoration-thickness:1px}
+  .f:hover,.f:focus-visible,.f.active{background:rgba(0,0,0,.07);outline:none;
+    text-decoration-color:currentColor}
+  .f:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+
+  .r-run{color:var(--c-run)} .r-stop{color:var(--c-stop)}
+  .r-neigh{color:var(--c-neigh)} .r-inter{color:var(--c-inter)}
+  .r-pbc{color:var(--c-pbc)} .r-comment{color:var(--c-comment)}
+
+  .card{position:sticky;bottom:12px;margin-top:14px;background:var(--ink);
+    color:#EDEFF2;border-radius:3px;padding:16px 18px;min-height:100px;z-index:3}
+  .card .slot{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:#8F98A3;margin:0 0 6px}
+  .card h3{font-size:17px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14px;color:#C4CBD3;max-width:72ch}
+  .card.empty h3,.card.empty p{color:#6E7884}
+
+  .hint{font-size:12px;color:var(--ink-soft);margin:12px 0 0;max-width:64ch}
+  footer{margin-top:40px;font-size:12px;color:var(--ink-soft);max-width:66ch;
+    border-top:1px solid var(--rule);padding-top:16px}
+  footer code{font-family:var(--mono);font-size:11px}
+
+  @media (max-width:620px){ :root{--fs-file:11px} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="callout">
+    <b>The one line that changed.</b> In <code>ions.mdp</code> we had
+    <code>coulombtype = cutoff</code>, because nothing was actually being computed.
+    Here it becomes <code>coulombtype = PME</code>. That is the switch from a placeholder
+    to real physics — and PME is precisely why we spent the last step making the box
+    electrically neutral.
+  </div>
+
+  <ul class="legend">
+    <li class="k-comment">comment</li>
+    <li class="k-run">what to run</li>
+    <li class="k-stop">when to stop</li>
+    <li class="k-neigh">neighbour list</li>
+    <li class="k-inter">interactions</li>
+    <li class="k-pbc">boundary</li>
+  </ul>
+
+  <div class="viewer">
+<pre class="file" id="file"><span class="f r-comment" data-t="Comments" data-d="Everything after a semicolon is ignored. Get into the habit of commenting your .mdp files — six months later you will want to know why you chose a particular value, and this is the only place that record will exist.">; minim.mdp - used by grompp to generate em.tpr</span>
+
+<span class="f r-run" data-t="integrator = steep" data-d="Steepest descent: the simplest downhill walk there is. It works out which direction reduces the energy fastest and takes a step that way, over and over. Note this is NOT dynamics — there is no time, no temperature and no velocity here. Atoms are simply being slid apart until nothing is badly strained.">integrator  = steep</span>
+<span class="f r-stop" data-t="emtol" data-d="The finishing line. When the largest force acting on any single atom falls below 1000 kJ/mol/nm, the job stops. It is a way of saying 'stop once nothing is being pushed too hard' rather than fixing a number of steps in advance. This is the number you check afterwards to confirm the minimisation actually succeeded.">emtol       = 1000.0</span>
+<span class="f r-stop" data-t="emstep" data-d="The size of each downhill step, in nanometres. Too big and it overshoots past the minimum; too small and it takes forever. The default works for almost everything and rarely needs touching.">emstep      = 0.01</span>
+<span class="f r-stop" data-t="nsteps" data-d="A safety limit on how many steps are allowed. If the run ends because it hit this ceiling rather than because it reached emtol, that is a warning sign — usually a badly rebuilt residue or an overlapping molecule carried in from preparation.">nsteps      = 50000</span>
+
+<span class="f r-neigh" data-t="nstlist" data-d="How often the neighbour list is rebuilt, in steps. Atoms move, so the list of who is near whom goes stale and must be refreshed. During minimisation the movements are small, so this is not critical.">nstlist         = 1</span>
+<span class="f r-neigh" data-t="cutoff-scheme = Verlet" data-d="How GROMACS decides which atom pairs to bother computing. Checking every atom against every other would be impossibly slow, so it keeps a list of nearby neighbours instead. Verlet is the modern, GPU-friendly choice and is what you should always use now.">cutoff-scheme   = Verlet</span>
+<span class="f r-neigh" data-t="ns_type = grid" data-d="The method used to find those neighbours — it divides the box into a grid and only checks nearby cells, rather than scanning the whole system. A performance detail; the default is fine.">ns_type         = grid</span>
+
+<span class="f r-inter" data-t="coulombtype = PME" data-d="THE important line. PME stands for Particle Mesh Ewald, and it is the proper way to handle electrostatic forces over long distances. Electrostatics reach much further than a cutoff would allow, so simply ignoring distant charges gives wrong answers. PME accounts for them all, including through the periodic images. It is also why the box had to be electrically neutral — PME on a charged box produces artefacts.">coulombtype     = PME</span>
+<span class="f r-inter" data-t="rcoulomb" data-d="Where the short-range part of the electrostatic calculation stops, in nanometres, with PME handling everything beyond. Remember this number when you set your box size: the molecule must sit further than this from the box edge, or it starts feeling its own periodic image.">rcoulomb        = 1.0</span>
+<span class="f r-inter" data-t="rvdw" data-d="The same cutoff for van der Waals forces. These fade away much faster with distance than electrostatics do, so a plain cutoff is genuinely adequate here — no PME equivalent is needed.">rvdw            = 1.0</span>
+
+<span class="f r-pbc" data-t="pbc = xyz" data-d="Periodic boundary conditions in all three directions — the Snake-game behaviour, where leaving through one face means re-entering from the opposite one. Almost always xyz.">pbc             = xyz</span></pre>
+  </div>
+
+  <div class="card empty" id="card" role="status" aria-live="polite">
+    <p class="slot">Setting detail</p>
+    <h3>Hover or tap a setting</h3>
+    <p>Each line is one instruction. Anything you leave out simply takes its default value.</p>
+  </div>
+
+  <p class="hint">
+    Notice what is <em>absent</em>: no temperature, no pressure, no thermostat.
+    Minimisation has no physics of motion in it at all — those settings appear for the
+    first time in the equilibration files that come next.
+  </p>
+
+  <footer>
+    Run it with
+    <code>gmx grompp -f minim.mdp -c solvated_ions.gro -p topol.top -o em.tpr</code>
+    then <code>gmx mdrun -v -deffnm em</code>.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var card    = document.getElementById('card');
+  var elTitle = card.querySelector('h3');
+  var elDesc  = card.querySelector('p:not(.slot)');
+  var defT = elTitle.textContent, defD = elDesc.textContent;
+  var pinned = null;
+
+  function show(el){
+    card.classList.remove('empty');
+    elTitle.textContent = el.getAttribute('data-t');
+    elDesc.textContent  = el.getAttribute('data-d');
+  }
+  function reset(){
+    if (pinned){ show(pinned); return; }
+    card.classList.add('empty');
+    elTitle.textContent = defT;
+    elDesc.textContent  = defD;
+  }
+
+  var fields = document.querySelectorAll('.f');
+  for (var i = 0; i < fields.length; i++){
+    (function(el){
+      el.setAttribute('tabindex','0');
+      el.addEventListener('mouseenter', function(){ show(el); });
+      el.addEventListener('mouseleave', reset);
+      el.addEventListener('focus',      function(){ show(el); });
+      el.addEventListener('blur',       reset);
+      el.addEventListener('click', function(e){
+        e.preventDefault();
+        if (pinned === el){ pinned.classList.remove('active'); pinned = null; reset(); }
+        else {
+          if (pinned) pinned.classList.remove('active');
+          pinned = el; el.classList.add('active'); show(el);
+        }
+      });
+    })(fields[i]);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixed charges versus a polarizable electron cloud — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+    --cloud:#1B4D8F;
+    --nucleus:#16181D;
+    --ion:#9E2B25;
+    --spring:#5F4B8B;
+    --good:#2F6B4F;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,36px) 28px;
+  }
+  .wrap{max-width:900px;margin:0 auto}
+
+.canvas-box{background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+  svg{display:block;width:100%;height:auto}
+
+  .controls{
+    background:#fff;border:1px solid var(--rule);border-top:0;
+    border-radius:0 0 3px 3px;padding:14px 16px 16px;
+  }
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;font-weight:500;margin-bottom:6px}
+  .ctrl label span{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  input[type=range]{width:100%;accent-color:var(--ion);margin:0}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0}
+  .presets button{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:6px 11px;border:1px solid var(--rule);background:#fff;
+    color:var(--ink);border-radius:3px;cursor:pointer;
+  }
+  .presets button:hover{background:var(--paper-2)}
+  .presets button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+  .note{margin:14px 0 0;background:var(--ink);color:#C4CBD3;border-radius:3px;
+    padding:14px 16px;font-size:13.5px;min-height:82px}
+  .note b{color:#fff;display:block;margin-bottom:4px;font-size:13.5px}
+
+  .keypoints{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0 0;
+  }
+  @media (max-width:640px){ .keypoints{grid-template-columns:1fr} }
+  .keypoints div{
+    background:#fff;border:1px solid var(--rule);border-radius:3px;padding:13px 15px;
+    font-size:13.5px;color:var(--ink-soft);
+  }
+  .keypoints b{display:block;color:var(--ink);font-size:13.5px;margin-bottom:3px}
+
+  footer{margin-top:26px;font-size:12px;color:var(--ink-soft);max-width:64ch;
+    border-top:1px solid var(--rule);padding-top:14px}
+
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="canvas-box">
+    <svg id="scene" viewBox="0 0 660 320" role="img"
+         aria-label="Comparison of a fixed-charge atom and a polarizable atom as a positive ion approaches">
+
+      <!-- panel labels -->
+      <text x="26" y="30" font-family="Archivo, sans-serif" font-size="13"
+            font-weight="700" fill="#16181D">FIXED CHARGE</text>
+      <text x="26" y="48" font-family="Archivo, sans-serif" font-size="12"
+            fill="#4A525C">what almost every simulation uses</text>
+
+      <text x="356" y="30" font-family="Archivo, sans-serif" font-size="13"
+            font-weight="700" fill="#16181D">POLARIZABLE</text>
+      <text x="356" y="48" font-family="Archivo, sans-serif" font-size="12"
+            fill="#4A525C">closer to reality — a Drude "shell" particle</text>
+
+      <line x1="330" y1="16" x2="330" y2="304" stroke="#C6CDD5" stroke-width="1" stroke-dasharray="4 4"/>
+
+      <!-- ===== LEFT: fixed charge ===== -->
+      <circle id="fCloud" cx="120" cy="180" r="52" fill="#1B4D8F" opacity="0.16"/>
+      <circle id="fCloudEdge" cx="120" cy="180" r="52" fill="none"
+              stroke="#1B4D8F" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="120" cy="180" r="7" fill="#16181D"/>
+      <text x="120" y="184" text-anchor="middle" font-family="JetBrains Mono, monospace"
+            font-size="11" font-weight="700" fill="#fff">−</text>
+      <text x="120" y="252" text-anchor="middle" font-family="Archivo, sans-serif"
+            font-size="11" fill="#4A525C">charge locked at the centre</text>
+
+      <g id="fIon">
+        <circle cx="270" cy="180" r="15" fill="#9E2B25"/>
+        <text x="270" y="185" text-anchor="middle" font-family="JetBrains Mono, monospace"
+              font-size="13" font-weight="700" fill="#fff">+</text>
+      </g>
+
+      <text id="fVerdict" x="120" y="286" text-anchor="middle"
+            font-family="Archivo, sans-serif" font-size="12" font-weight="600"
+            fill="#4A525C">no response</text>
+
+      <!-- ===== RIGHT: polarizable ===== -->
+      <!-- spring between nucleus and shell -->
+      <path id="pSpring" d="" fill="none" stroke="#5F4B8B" stroke-width="1.8" opacity="0.9"/>
+
+      <circle id="pCloud" cx="450" cy="180" r="52" fill="#1B4D8F" opacity="0.16"/>
+      <circle id="pCloudEdge" cx="450" cy="180" r="52" fill="none"
+              stroke="#1B4D8F" stroke-width="1.5" opacity="0.5"/>
+
+      <!-- shell particle -->
+      <circle id="pShell" cx="450" cy="180" r="6.5" fill="#1B4D8F"/>
+      <!-- nucleus stays put -->
+      <circle cx="450" cy="180" r="7" fill="#16181D"/>
+
+      <text id="pLabelNeg" x="450" y="252" text-anchor="middle"
+            font-family="Archivo, sans-serif" font-size="11" fill="#4A525C">
+        cloud free to shift
+      </text>
+
+      <g id="pIon">
+        <circle cx="600" cy="180" r="15" fill="#9E2B25"/>
+        <text x="600" y="185" text-anchor="middle" font-family="JetBrains Mono, monospace"
+              font-size="13" font-weight="700" fill="#fff">+</text>
+      </g>
+
+      <!-- induced dipole markers -->
+      <text id="pDeltaMinus" x="0" y="0" text-anchor="middle" opacity="0"
+            font-family="JetBrains Mono, monospace" font-size="12"
+            font-weight="700" fill="#1B4D8F">δ−</text>
+      <text id="pDeltaPlus" x="0" y="0" text-anchor="middle" opacity="0"
+            font-family="JetBrains Mono, monospace" font-size="12"
+            font-weight="700" fill="#9E2B25">δ+</text>
+
+      <text id="pVerdict" x="450" y="286" text-anchor="middle"
+            font-family="Archivo, sans-serif" font-size="12" font-weight="600"
+            fill="#2F6B4F">responds</text>
+    </svg>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>Bring the positive ion closer <span id="distOut">far away</span></label>
+      <input type="range" id="dist" min="0" max="100" value="0" step="1">
+    </div>
+    <div class="presets">
+      <button data-p="0">Far away</button>
+      <button data-p="55">Nearby</button>
+      <button data-p="100">Very close</button>
+    </div>
+  </div>
+
+  <div class="note" id="note">
+    <b>Start by dragging the slider.</b>
+    The ion is currently too far away to have any effect on either model.
+  </div>
+
+  <div class="keypoints">
+    <div>
+      <b>Why we accept this</b>
+      Fixed charges are tuned to behave correctly in ordinary water, which is where most
+      of a protein sits. So the error is small most of the time — and the model is far cheaper.
+    </div>
+    <div>
+      <b>Where it costs us</b>
+      In unusual surroundings: buried protein interiors, metal binding sites, membranes,
+      and the strongly negative environment around DNA.
+    </div>
+  </div>
+
+  <footer>
+    The polarizable panel shows how GROMACS actually implements this — a small "shell"
+    particle carrying the negative charge, tethered to the nucleus by a spring, free to
+    be pulled about by nearby charges.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var svgNS = "http://www.w3.org/2000/svg";
+
+  var elDist = document.getElementById('dist');
+  var oDist  = document.getElementById('distOut');
+  var note   = document.getElementById('note');
+
+  var fIon = document.getElementById('fIon');
+  var pIon = document.getElementById('pIon');
+  var pCloud = document.getElementById('pCloud');
+  var pCloudEdge = document.getElementById('pCloudEdge');
+  var pShell = document.getElementById('pShell');
+  var pSpring = document.getElementById('pSpring');
+  var dMinus = document.getElementById('pDeltaMinus');
+  var dPlus  = document.getElementById('pDeltaPlus');
+  var fVerdict = document.getElementById('fVerdict');
+  var pVerdict = document.getElementById('pVerdict');
+
+  var FAR = 0, NEAR = 118;      // pixels the ion travels inward
+  var NUC_L = 120, NUC_R = 450; // nucleus x positions
+  var CY = 180;
+
+  // draw a zigzag spring between two points
+  function spring(x1, y1, x2, y2, coils, amp){
+    var dx = x2 - x1, dy = y2 - y1;
+    var len = Math.sqrt(dx*dx + dy*dy);
+    if (len < 1) return "M" + x1 + " " + y1 + " L" + x2 + " " + y2;
+    var ux = dx/len, uy = dy/len;
+    var px = -uy, py = ux;           // perpendicular
+    var d = "M" + x1 + " " + y1;
+    var n = coils * 2;
+    for (var i = 1; i <= n; i++){
+      var t = i / (n + 1);
+      var sign = (i % 2 === 0) ? -1 : 1;
+      var bx = x1 + dx*t + px*amp*sign;
+      var by = y1 + dy*t + py*amp*sign;
+      d += " L" + bx.toFixed(1) + " " + by.toFixed(1);
+    }
+    return d + " L" + x2 + " " + y2;
+  }
+
+  function update(){
+    var v = +elDist.value / 100;          // 0 = far, 1 = close
+    var travel = FAR + v * NEAR;
+
+    // ion positions
+    var fIonX = 270 - travel;
+    var pIonX = 600 - travel;
+    fIon.setAttribute('transform', 'translate(' + (-travel) + ',0)');
+    pIon.setAttribute('transform', 'translate(' + (-travel) + ',0)');
+
+    // induced displacement of the electron cloud: grows steeply as the ion nears
+    var shift = 22 * Math.pow(v, 1.7);
+
+    var shellX = NUC_R + shift;
+    pCloud.setAttribute('cx', shellX);
+    pCloudEdge.setAttribute('cx', shellX);
+    pShell.setAttribute('cx', shellX);
+
+    // the cloud also squashes slightly as it is pulled
+    var r = 52 - 4 * v;
+    pCloud.setAttribute('r', r);
+    pCloudEdge.setAttribute('r', r);
+
+    pSpring.setAttribute('d', spring(NUC_R, CY, shellX, CY, 3, 5));
+    pSpring.setAttribute('opacity', shift > 1.5 ? 0.9 : 0.35);
+
+    // induced dipole labels appear once there is a real shift
+    var showD = v > 0.18 ? 1 : 0;
+    dMinus.setAttribute('x', shellX + r - 6);
+    dMinus.setAttribute('y', CY - r + 16);
+    dMinus.setAttribute('opacity', showD * 0.95);
+    dPlus.setAttribute('x', NUC_R - r + 10);
+    dPlus.setAttribute('y', CY - r + 16);
+    dPlus.setAttribute('opacity', showD * 0.95);
+
+    // labels
+    var label;
+    if (v < 0.12)      label = 'far away';
+    else if (v < 0.45) label = 'approaching';
+    else if (v < 0.8)  label = 'close';
+    else               label = 'very close';
+    oDist.textContent = label;
+
+    fVerdict.textContent = v < 0.12 ? 'no response' : 'still no response';
+    pVerdict.textContent = v < 0.12 ? 'no response yet' : 'cloud pulled toward the ion';
+    pVerdict.setAttribute('fill', v < 0.12 ? '#4A525C' : '#2F6B4F');
+
+    // guidance
+    var msg;
+    if (v < 0.12){
+      msg = '<b>Start by dragging the slider.</b> The ion is currently too far away to ' +
+            'have any effect on either model.';
+    } else if (v < 0.45){
+      msg = '<b>The difference is starting to show.</b> On the right, the electron cloud ' +
+            'is being tugged toward the positive ion, leaving the far side slightly ' +
+            'positive. On the left, nothing whatsoever has changed.';
+    } else if (v < 0.8){
+      msg = '<b>An induced dipole.</b> The polarizable atom now has a δ− side facing the ' +
+            'ion and a δ+ side away from it, and that separation creates an extra ' +
+            'attraction. The fixed-charge atom cannot represent this at all — its charge ' +
+            'is the same number it was at the start of the simulation.';
+    } else {
+      msg = '<b>This is what we are missing.</b> At close range the real attraction is ' +
+            'noticeably stronger than fixed charges predict. It rarely matters in bulk ' +
+            'water, because the charges were tuned for exactly that setting. It matters ' +
+            'a great deal beside a metal ion, inside a protein core, or along a DNA backbone.';
+    }
+    note.innerHTML = msg;
+  }
+
+  elDist.addEventListener('input', update);
+  document.querySelectorAll('.presets button').forEach(function(b){
+    b.addEventListener('click', function(){
+      elDist.value = b.getAttribute('data-p');
+      update();
+    });
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>

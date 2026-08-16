@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What RMSD measures — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+    --atom:#1B4D8F;
+    --ghost:#98A2AD;
+    --disp:#9E2B25;
+    --good:#2F6B4F;
+    --warn:#B0562A;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,36px) 28px;
+  }
+  .wrap{max-width:940px;margin:0 auto}
+
+.stage{
+    display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start;
+  }
+  @media (max-width:760px){ .stage{grid-template-columns:1fr} }
+
+  .canvas-box{
+    background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+  }
+  svg{display:block;width:100%;height:auto}
+
+  .panel{
+    background:#fff;border:1px solid var(--rule);border-radius:3px;padding:16px 16px 18px;
+  }
+  .panel h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 12px}
+
+  .readout{margin:0 0 14px}
+  .readout .val{font-family:var(--mono);font-size:34px;font-weight:700;
+    letter-spacing:-.02em;line-height:1;display:block}
+  .readout .unit{font-family:var(--mono);font-size:13px;color:var(--ink-soft);
+    font-weight:500;margin-left:2px}
+  .meter{height:8px;background:var(--paper-2);border-radius:2px;
+    overflow:hidden;margin-top:10px}
+  .meter i{display:block;height:100%;width:0;background:var(--disp);
+    transition:width .12s linear,background .2s ease}
+
+  .ctrl{margin:0 0 14px}
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;font-weight:500;margin-bottom:5px}
+  .ctrl label span{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  input[type=range]{width:100%;accent-color:var(--atom);margin:0}
+
+  .toggle{
+    display:flex;align-items:center;gap:9px;padding:11px 12px;margin:16px 0 0;
+    background:var(--paper-2);border-radius:3px;cursor:pointer;
+    font-size:13px;font-weight:600;
+  }
+  .toggle input{width:16px;height:16px;accent-color:var(--good);margin:0;cursor:pointer}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 0}
+  .presets button{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:6px 11px;border:1px solid var(--rule);background:#fff;
+    color:var(--ink);border-radius:3px;cursor:pointer;
+  }
+  .presets button:hover{background:var(--paper-2)}
+  .presets button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+  .note{
+    margin:16px 0 0;background:var(--ink);color:#C4CBD3;border-radius:3px;
+    padding:13px 15px;font-size:13.5px;min-height:76px;
+  }
+  .note b{color:#fff;display:block;margin-bottom:3px;font-size:13px}
+
+  .formula{
+    margin:20px 0 0;background:#fff;border:1px solid var(--rule);border-radius:3px;
+    padding:14px 16px;font-size:13.5px;color:var(--ink-soft);max-width:66ch;
+  }
+  .formula code{font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+
+  footer{margin-top:28px;font-size:12px;color:var(--ink-soft);max-width:64ch;
+    border-top:1px solid var(--rule);padding-top:14px}
+
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="stage">
+    <div class="canvas-box">
+      <svg id="scene" viewBox="0 0 520 340" role="img"
+           aria-label="Four-atom model molecule compared against a reference conformation">
+        <defs>
+          <pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse">
+            <path d="M26 0 L0 0 0 26" fill="none" stroke="#EEF1F4" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="520" height="340" fill="url(#grid)"/>
+        <g id="ghostBonds" stroke="var(--ghost)" stroke-width="7"
+           stroke-linecap="round" opacity=".30"></g>
+        <g id="ghostAtoms" opacity=".30"></g>
+        <g id="dispLines" stroke="var(--disp)" stroke-width="1.6"
+           stroke-dasharray="4 3" opacity=".75"></g>
+        <g id="bonds" stroke="#2B3038" stroke-width="8" stroke-linecap="round"></g>
+        <g id="atoms"></g>
+      </svg>
+    </div>
+
+    <div class="panel">
+      <h2>RMSD</h2>
+      <div class="readout">
+        <span class="val" id="rmsdVal">0.00<span class="unit">Å</span></span>
+        <div class="meter"><i id="meterBar"></i></div>
+      </div>
+
+      <div class="ctrl">
+        <label>Bend the molecule <span id="bendOut">0°</span></label>
+        <input type="range" id="bend" min="-90" max="90" value="0" step="1">
+      </div>
+      <div class="ctrl">
+        <label>Rotate it <span id="rotOut">0°</span></label>
+        <input type="range" id="rot" min="-180" max="180" value="0" step="1">
+      </div>
+      <div class="ctrl">
+        <label>Move it across <span id="drfOut">0.0 Å</span></label>
+        <input type="range" id="drf" min="-70" max="70" value="0" step="1">
+      </div>
+
+      <label class="toggle">
+        <input type="checkbox" id="fit">
+        Superimpose first (–fit)
+      </label>
+
+      <div class="presets">
+        <button data-p="reset">Reset</button>
+        <button data-p="tumble">Only tumbling</button>
+        <button data-p="bend">Only bending</button>
+        <button data-p="both">Both</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" id="note">
+    <b>Nothing has moved yet.</b>
+    Drag a slider. "Bend" changes the actual shape. "Rotate" and "Move" change
+    nothing about the shape — they only shift the whole molecule.
+  </div>
+
+  <div class="formula">
+    <b>The arithmetic is simple.</b> For each atom, measure how far it sits from where
+    it was in the reference. Square those distances, take the average, then take the
+    square root:
+    <code>RMSD = √( Σ|rᵢ − rᵢ<sup>ref</sup>|² ⁄ N )</code>.
+    Squaring is what makes RMSD sensitive to a few badly displaced atoms — one atom
+    moving 4 Å counts far more than four atoms moving 1 Å each.
+  </div>
+
+  <footer>
+    A two-dimensional model with four atoms, for clarity. Real RMSD works the same way
+    in three dimensions, over thousands of atoms.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var PX = 35;              // pixels per angstrom
+  var L  = 1.55 * PX;       // bond length
+  var CX = 260, CY = 175;   // canvas centre
+  var MAX_METER = 6;        // angstrom, full bar
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var gAtoms  = document.getElementById('atoms');
+  var gBonds  = document.getElementById('bonds');
+  var gGA     = document.getElementById('ghostAtoms');
+  var gGB     = document.getElementById('ghostBonds');
+  var gDisp   = document.getElementById('dispLines');
+
+  var elBend = document.getElementById('bend');
+  var elRot  = document.getElementById('rot');
+  var elDrf  = document.getElementById('drf');
+  var elFit  = document.getElementById('fit');
+  var elVal  = document.getElementById('rmsdVal');
+  var elBar  = document.getElementById('meterBar');
+  var elNote = document.getElementById('note');
+  var oBend  = document.getElementById('bendOut');
+  var oRot   = document.getElementById('rotOut');
+  var oDrf   = document.getElementById('drfOut');
+
+  function rad(d){ return d * Math.PI / 180; }
+
+  // Build a 4-atom chain from three bond angles
+  function chain(bend){
+    var a = [ rad(-32), rad(28 + bend*0.55), rad(-32 + bend*1.0) ];
+    var p = [{x:0, y:0}];
+    for (var i = 0; i < 3; i++){
+      p.push({ x: p[i].x + L*Math.cos(a[i]), y: p[i].y + L*Math.sin(a[i]) });
+    }
+    return p;
+  }
+
+  function centroid(p){
+    var cx = 0, cy = 0;
+    for (var i = 0; i < p.length; i++){ cx += p[i].x; cy += p[i].y; }
+    return { x: cx/p.length, y: cy/p.length };
+  }
+  function shift(p, dx, dy){
+    return p.map(function(q){ return { x:q.x+dx, y:q.y+dy }; });
+  }
+  function rotate(p, th, about){
+    var c = Math.cos(th), s = Math.sin(th);
+    return p.map(function(q){
+      var x = q.x - about.x, y = q.y - about.y;
+      return { x: about.x + x*c - y*s, y: about.y + x*s + y*c };
+    });
+  }
+
+  // Reference: unbent chain, centred on canvas
+  var refRaw = chain(0);
+  var refC   = centroid(refRaw);
+  var REF    = shift(refRaw, CX - refC.x, CY - refC.y);
+
+  // Optimal 2D superposition (Kabsch) of p onto q
+  function superpose(p, q){
+    var pc = centroid(p), qc = centroid(q);
+    var A = 0, B = 0;
+    for (var i = 0; i < p.length; i++){
+      var px = p[i].x - pc.x, py = p[i].y - pc.y;
+      var qx = q[i].x - qc.x, qy = q[i].y - qc.y;
+      A += px*qx + py*qy;
+      B += px*qy - py*qx;
+    }
+    var th = Math.atan2(B, A), c = Math.cos(th), s = Math.sin(th);
+    return p.map(function(r){
+      var x = r.x - pc.x, y = r.y - pc.y;
+      return { x: qc.x + x*c - y*s, y: qc.y + x*s + y*c };
+    });
+  }
+
+  function rmsd(p, q){
+    var sum = 0;
+    for (var i = 0; i < p.length; i++){
+      var dx = p[i].x - q[i].x, dy = p[i].y - q[i].y;
+      sum += dx*dx + dy*dy;
+    }
+    return Math.sqrt(sum / p.length) / PX;
+  }
+
+  function clear(g){ while (g.firstChild) g.removeChild(g.firstChild); }
+
+  function drawMol(pts, gA, gB, fill){
+    clear(gA); clear(gB);
+    for (var i = 0; i < pts.length - 1; i++){
+      var ln = document.createElementNS(svgNS, 'line');
+      ln.setAttribute('x1', pts[i].x);   ln.setAttribute('y1', pts[i].y);
+      ln.setAttribute('x2', pts[i+1].x); ln.setAttribute('y2', pts[i+1].y);
+      gB.appendChild(ln);
+    }
+    for (var j = 0; j < pts.length; j++){
+      var c = document.createElementNS(svgNS, 'circle');
+      c.setAttribute('cx', pts[j].x); c.setAttribute('cy', pts[j].y);
+      c.setAttribute('r', 13);
+      c.setAttribute('fill', fill);
+      gA.appendChild(c);
+    }
+  }
+
+  function update(){
+    var bend = +elBend.value, rot = +elRot.value, drf = +elDrf.value;
+    var fitOn = elFit.checked;
+
+    // Current conformation, then rigid-body moved
+    var cur = chain(bend);
+    var cc  = centroid(cur);
+    cur = shift(cur, CX - cc.x, CY - cc.y);
+    cur = rotate(cur, rad(rot), {x:CX, y:CY});
+    cur = shift(cur, drf, 0);
+
+    var shown = fitOn ? superpose(cur, REF) : cur;
+    var value = rmsd(shown, REF);
+
+    // draw
+    drawMol(REF,  gGA, gGB, 'var(--ghost)');
+    drawMol(shown, gAtoms, gBonds, 'var(--atom)');
+
+    clear(gDisp);
+    for (var i = 0; i < shown.length; i++){
+      var ln = document.createElementNS(svgNS, 'line');
+      ln.setAttribute('x1', REF[i].x);   ln.setAttribute('y1', REF[i].y);
+      ln.setAttribute('x2', shown[i].x); ln.setAttribute('y2', shown[i].y);
+      gDisp.appendChild(ln);
+    }
+
+    elVal.innerHTML = value.toFixed(2) + '<span class="unit">Å</span>';
+    var pct = Math.min(100, value / MAX_METER * 100);
+    elBar.style.width = pct + '%';
+    elBar.style.background = value < 0.35 ? 'var(--good)'
+                          : value < 2.5  ? 'var(--warn)' : 'var(--disp)';
+
+    oBend.textContent = bend + '°';
+    oRot.textContent  = rot + '°';
+    oDrf.textContent  = (drf / PX).toFixed(1) + ' Å';
+
+    // guidance
+    var moved  = Math.abs(rot) > 4 || Math.abs(drf) > 4;
+    var shaped = Math.abs(bend) > 4;
+    var msg;
+    if (!moved && !shaped){
+      msg = '<b>Nothing has moved yet.</b> Drag a slider. "Bend" changes the actual ' +
+            'shape. "Rotate" and "Move" change nothing about the shape — they only ' +
+            'shift the whole molecule.';
+    } else if (moved && !shaped && !fitOn){
+      msg = '<b>This is the trap.</b> The shape has not changed at all — every bond ' +
+            'and angle is identical. Yet RMSD is large, because the atoms are no longer ' +
+            'where they started. You are measuring tumbling, not structure. ' +
+            'Now tick "Superimpose first".';
+    } else if (moved && !shaped && fitOn){
+      msg = '<b>Fixed.</b> Superimposing slid and rotated the molecule back on top of ' +
+            'the reference before measuring, so RMSD drops to nearly zero — correctly ' +
+            'reporting that the shape never changed.';
+    } else if (shaped && !moved){
+      msg = '<b>This is real change.</b> The bonds have rotated, so the shape genuinely ' +
+            'differs. RMSD here is meaningful whether or not you superimpose, because ' +
+            'the molecule has not been moved as a whole.';
+    } else if (shaped && moved && !fitOn){
+      msg = '<b>Two things mixed together.</b> Part of this number is genuine shape ' +
+            'change and part is just tumbling — and you cannot tell which is which. ' +
+            'This is why fitting is not optional.';
+    } else {
+      msg = '<b>Only the real change remains.</b> Superimposing removed the tumbling, ' +
+            'leaving RMSD to report the shape change alone. This is what every RMSD ' +
+            'plot in a paper is showing you.';
+    }
+    elNote.innerHTML = msg;
+  }
+
+  [elBend, elRot, elDrf].forEach(function(el){
+    el.addEventListener('input', update);
+  });
+  elFit.addEventListener('change', update);
+
+  document.querySelectorAll('.presets button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var p = b.getAttribute('data-p');
+      if (p === 'reset')  { elBend.value = 0;  elRot.value = 0;   elDrf.value = 0;  elFit.checked = false; }
+      if (p === 'tumble') { elBend.value = 0;  elRot.value = 115; elDrf.value = 45; elFit.checked = false; }
+      if (p === 'bend')   { elBend.value = 62; elRot.value = 0;   elDrf.value = 0;  elFit.checked = false; }
+      if (p === 'both')   { elBend.value = 62; elRot.value = 115; elDrf.value = 45; elFit.checked = false; }
+      update();
+    });
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>

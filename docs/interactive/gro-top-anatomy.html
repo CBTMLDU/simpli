@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy of .gro and .top — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+
+    --c-meta:#5C6672;
+    --c-count:#7A5C1E;
+    --c-res:#2F6B4F;
+    --c-atom:#1B4D8F;
+    --c-coord:#9E2B25;
+    --c-box:#5F4B8B;
+
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+    --fs-file:13px;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,40px) 28px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+
+hr.div{border:0;border-top:1px solid var(--rule);margin:34px 0 26px}
+
+  h2.sec{font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0 0 4px}
+  h2.sec span{font-family:var(--mono);font-size:15px;color:var(--ink-soft);font-weight:500}
+  .sec-note{margin:0 0 16px;color:var(--ink-soft);font-size:14px;max-width:62ch}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 16px;padding:0;list-style:none}
+  .legend li{font-family:var(--mono);font-size:11px;font-weight:500;
+    padding:3px 8px;border:1px solid currentColor;border-radius:2px}
+  .k-meta{color:var(--c-meta)} .k-count{color:var(--c-count)}
+  .k-res{color:var(--c-res)} .k-atom{color:var(--c-atom)}
+  .k-coord{color:var(--c-coord)} .k-box{color:var(--c-box)}
+
+  .viewer{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    overflow:auto;max-height:30vh;-webkit-overflow-scrolling:touch}
+  .viewer-inner{display:inline-block;min-width:100%;padding:0 0 14px}
+
+  .ruler{display:flex;font-family:var(--mono);font-size:9px;line-height:1;
+    color:#9AA3AD;background:var(--paper-2);border-bottom:1px solid var(--rule);
+    padding:6px 14px 5px;position:sticky;top:0;z-index:2}
+  .ruler i{width:1ch;flex:0 0 1ch;text-align:left;font-style:normal;
+    display:block;transition:background .12s ease,color .12s ease}
+  .ruler i.on{background:var(--ink);color:#fff;font-weight:700}
+
+  pre.file{font-family:var(--mono);font-size:var(--fs-file);line-height:1.75;
+    margin:0;padding:12px 14px 0;white-space:pre;color:var(--ink)}
+
+  .f{border-radius:2px;padding:1px 0;cursor:pointer;transition:background .12s ease;
+    text-decoration:underline;text-decoration-color:rgba(0,0,0,.18);
+    text-underline-offset:3px;text-decoration-thickness:1px}
+  .f:hover,.f:focus-visible,.f.active{background:rgba(0,0,0,.07);outline:none;
+    text-decoration-color:currentColor}
+  .f:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+
+  .r-meta{color:var(--c-meta)} .r-count{color:var(--c-count)}
+  .r-res{color:var(--c-res)} .r-atom{color:var(--c-atom)}
+  .r-coord{color:var(--c-coord)} .r-box{color:var(--c-box)}
+  .dim{color:#A9B1BA}
+
+  .card{position:sticky;bottom:12px;margin-top:14px;background:var(--ink);
+    color:#EDEFF2;border-radius:3px;padding:16px 18px;min-height:104px;z-index:3}
+  .card .slot{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:#8F98A3;margin:0 0 6px}
+  .card h3{font-size:17px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14px;color:#C4CBD3;max-width:72ch}
+  .card .cols{font-family:var(--mono);font-size:11px;color:#8F98A3;margin:8px 0 0}
+  .card.empty h3,.card.empty p,.card.empty .cols{color:#6E7884}
+
+  .hint{font-size:12px;color:var(--ink-soft);margin:10px 0 0}
+  footer{margin-top:44px;font-size:12px;color:var(--ink-soft);max-width:66ch}
+
+  @media (max-width:620px){ :root{--fs-file:11px} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ============ .gro ============ -->
+  <h2 class="sec">The coordinate file <span>— conf.gro</span></h2>
+  <p class="sec-note">
+    Fixed-width like the PDB, but with its own column layout and — importantly —
+    nanometres instead of Ångströms.
+  </p>
+
+  <ul class="legend">
+    <li class="k-meta">title</li>
+    <li class="k-count">atom count</li>
+    <li class="k-res">residue</li>
+    <li class="k-atom">atom</li>
+    <li class="k-coord">coordinates</li>
+    <li class="k-box">box vectors</li>
+  </ul>
+
+  <div class="viewer">
+    <div class="viewer-inner">
+      <div class="ruler" id="rulerA" aria-hidden="true"></div>
+<pre class="file" data-ruler="rulerA"><span class="f r-meta" data-t="Title line" data-c="1-44" data-d="Line 1 is free text. GROMACS writes a description here automatically, and it often carries the simulation time when the file came out of a trajectory. Purely a label — nothing reads it.">Protein in water t=  0.00000 step= 0</span>
+<span class="f r-count" data-t="Atom count" data-c="1-5" data-d="Line 2 holds one number: the total atoms in the file. GROMACS trusts this count absolutely. If you hand-edit a .gro and add or delete an atom without fixing this number, everything downstream breaks — the single most common way people corrupt a .gro file.">  1960</span>
+<span class="f r-res" data-t="Residue number" data-c="1-5" data-d="Columns 1-5. Which residue this atom belongs to. Note there is no chain identifier anywhere in a .gro file — chains are gone. That information now lives in the topology, as separate [ molecules ] entries.">    1</span><span class="f r-res" data-t="Residue name" data-c="6-10" data-d="Columns 6-10. The residue name, left-justified. These follow your chosen force field's convention, so a histidine may read HSD or HIE depending on which force field pdb2gmx used.">SER  </span><span class="f r-atom" data-t="Atom name" data-c="11-15" data-d="Columns 11-15, right-justified. The atom's name within its residue. Hydrogens here were generated by pdb2gmx, which is why their naming follows the force field rather than the original PDB.">    N</span><span class="f r-atom" data-t="Atom number" data-c="16-20" data-d="Columns 16-20. A running index over every atom in the system. Past 99999 it simply wraps around to zero — GROMACS does not mind, because it reads by position in the file, not by this number.">    1</span><span class="f r-coord" data-t="Position — x, y, z" data-c="21-44" data-d="Columns 21-44, three fields of 8 characters. The atom's position. CRITICAL: these are NANOMETRES, not Angstroms. A PDB file uses Angstroms, so every coordinate is ten times smaller here. This trips people up constantly when comparing the two files.">   5.229   3.211   2.050</span><span class="f r-coord" data-t="Velocity — vx, vy, vz" data-c="45-68" data-d="Columns 45-68, optional. Each atom's velocity in nm/ps. A freshly built .gro has no velocities; files written after equilibration do. This is how a simulation resumes exactly where it left off instead of restarting from rest.">  0.1234 -0.0567  0.0891</span>
+<span class="dim">...</span>
+<span class="f r-box" data-t="Box vectors" data-c="1-30" data-d="The LAST line, and easy to miss. It defines the periodic box — three numbers for a rectangular box, or nine for a triclinic one like a rhombic dodecahedron. This is what editconf writes when you set the box type and clearance. Delete this line and GROMACS has no idea how big your universe is.">   6.98461   6.98461   4.93890   0.00000   0.00000   0.00000</span></pre>
+    </div>
+  </div>
+
+  <div class="card empty" id="cardA" role="status" aria-live="polite">
+    <p class="slot">Field detail</p>
+    <h3>Hover or tap a highlighted field</h3>
+    <p>The column ruler above lights up to show which character positions the field occupies.</p>
+    <p class="cols"></p>
+  </div>
+
+  <p class="hint">A .gro file is fixed-width: column position is the syntax, exactly as in a PDB.</p>
+
+  <hr class="div">
+
+  <!-- ============ .top ============ -->
+  <h2 class="sec">The topology file <span>— topol.top</span></h2>
+  <p class="sec-note">
+    Not fixed-width — organised into directives written in square brackets. This file
+    contains no 3D structure at all. It describes what the system <em>is</em>, never where it sits.
+  </p>
+
+  <div class="viewer">
+    <div class="viewer-inner">
+<pre class="file"><span class="f r-meta" data-t="Force field include" data-c="" data-d="Pulls in the entire force field: every atom type, bond length, angle, dihedral and charge parameter. This one line is the single biggest scientific decision in your whole setup — swap it and you are doing different physics with identical coordinates.">#include "charmm36-jul2022.ff/forcefield.itp"</span>
+
+<span class="f r-res" data-t="[ moleculetype ]" data-c="" data-d="Opens the definition of one kind of molecule. The number beside the name is nrexcl — how many bonds away neighbouring atoms stop feeling non-bonded forces from each other, since those interactions are already covered by the bonded terms.">[ moleculetype ]
+; Name            nrexcl
+Protein_chain_A     3</span>
+
+<span class="f r-atom" data-t="[ atoms ]" data-c="" data-d="Every atom in this molecule, one line each: its force-field type, which residue it belongs to, its partial CHARGE and its mass. The charge column is where the fixed-charge limitation we discussed lives — these numbers never change during the entire simulation, no matter what the atom's surroundings do.">[ atoms ]
+;   nr  type  resnr residue  atom   cgnr   charge     mass
+     1    NH3      1    SER      N      1   -0.300  14.0070
+     2     HC      1    SER     H1      2    0.330   1.0080</span>
+
+<span class="f r-count" data-t="[ bonds ]" data-c="" data-d="Which pairs of atoms are covalently bonded, and with what spring constant. This is the fixed topology we talked about: the bond list is written once, here, and can never change during the run. It is precisely why classical MD cannot break or form covalent bonds.">[ bonds ]
+;  ai    aj funct
+    1     2     1
+    1     3     1</span>
+
+<span class="f r-coord" data-t="[ angles ] and [ dihedrals ]" data-c="" data-d="The remaining bonded terms: three-atom angles and four-atom torsions. Dihedrals are where much of a force field's personality lives — they govern backbone preferences, and differences here are a large part of why CHARMM and AMBER give subtly different results for the same protein.">[ angles ]
+;  ai    aj    ak funct
+    2     1     3     1
+
+[ dihedrals ]
+;  ai    aj    ak    al funct
+    1     5     7     9     9</span>
+
+<span class="f r-box" data-t="Water and ion includes" data-c="" data-d="Brings in the parameters for the water model you named at pdb2gmx and for the ions. Note these arrive as includes — the water molecules themselves do not exist yet. This is exactly the point about declaring the solvent before building the box: we are loading the definition, not adding molecules.">#include "charmm36-jul2022.ff/tip3p.itp"
+#include "charmm36-jul2022.ff/ions.itp"</span>
+
+<span class="f r-meta" data-t="[ system ]" data-c="" data-d="A free-text name for the whole assembled system. This is the label that shows up in later GROMACS output and in analysis tools.">[ system ]
+Protein in water</span>
+
+<span class="f r-res" data-t="[ molecules ]" data-c="" data-d="The inventory: which molecule types are present and HOW MANY of each, in the exact order they appear in the .gro file. gmx solvate and genion edit this list for you when they add water and ions. If this count ever disagrees with the coordinate file, grompp stops with an error — and that mismatch is the most common setup failure of all.">[ molecules ]
+; Compound        #mols
+Protein_chain_A       1
+SOL                 618
+NA                    3
+CL                    5</span></pre>
+    </div>
+  </div>
+
+  <div class="card empty" id="cardB" role="status" aria-live="polite">
+    <p class="slot">Directive detail</p>
+    <h3>Hover or tap a highlighted block</h3>
+    <p>Each bracketed directive opens a new kind of information about the system.</p>
+    <p class="cols"></p>
+  </div>
+
+  <hr class="div">
+  <footer>
+    Values shown are illustrative but follow the real file specifications. Generate your own with
+    <code>gmx pdb2gmx -f protein.pdb -o conf.gro -p topol.top -water tip3p -ignh -ter</code>.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var COLS = 70;
+
+  // Build the ruler for the .gro block
+  var ruler = document.getElementById('rulerA');
+  var cells = [];
+  for (var i = 1; i <= COLS; i++){
+    var c = document.createElement('i');
+    c.textContent = (i % 10 === 0) ? String(i).slice(-2, -1) : (i === 1 ? '1' : '\u00A0');
+    ruler.appendChild(c);
+    cells.push(c);
+  }
+
+  function clearRuler(){
+    for (var i = 0; i < cells.length; i++) cells[i].classList.remove('on');
+  }
+  function paintRuler(range){
+    clearRuler();
+    if (!range) return;
+    var p = range.split('-');
+    var a = parseInt(p[0], 10), b = parseInt(p[1] || p[0], 10);
+    if (isNaN(a)) return;
+    for (var i = a; i <= b && i <= COLS; i++){
+      if (cells[i-1]) cells[i-1].classList.add('on');
+    }
+  }
+
+  // Wire each card to the fields inside its own <pre>
+  function wire(preEl, cardEl, usesRuler){
+    var elTitle = cardEl.querySelector('h3');
+    var elDesc  = cardEl.querySelector('p:not(.slot):not(.cols)');
+    var elCols  = cardEl.querySelector('.cols');
+    var defTitle = elTitle.textContent;
+    var defDesc  = elDesc.textContent;
+    var pinned = null;
+
+    function show(el){
+      cardEl.classList.remove('empty');
+      elTitle.textContent = el.getAttribute('data-t');
+      elDesc.textContent  = el.getAttribute('data-d');
+      var c = el.getAttribute('data-c');
+      elCols.textContent = c ? ('columns ' + c.replace('-', '\u2013')) : '';
+      if (usesRuler) paintRuler(c);
+    }
+    function reset(){
+      if (pinned){ show(pinned); return; }
+      cardEl.classList.add('empty');
+      elTitle.textContent = defTitle;
+      elDesc.textContent  = defDesc;
+      elCols.textContent  = '';
+      if (usesRuler) clearRuler();
+    }
+
+    var fields = preEl.querySelectorAll('.f');
+    for (var i = 0; i < fields.length; i++){
+      (function(el){
+        el.setAttribute('tabindex','0');
+        el.addEventListener('mouseenter', function(){ show(el); });
+        el.addEventListener('mouseleave', reset);
+        el.addEventListener('focus',      function(){ show(el); });
+        el.addEventListener('blur',       reset);
+        el.addEventListener('click', function(e){
+          e.preventDefault();
+          if (pinned === el){ pinned.classList.remove('active'); pinned = null; reset(); }
+          else {
+            if (pinned) pinned.classList.remove('active');
+            pinned = el; el.classList.add('active'); show(el);
+          }
+        });
+      })(fields[i]);
+    }
+  }
+
+  var pres = document.querySelectorAll('pre.file');
+  wire(pres[0], document.getElementById('cardA'), true);
+  wire(pres[1], document.getElementById('cardB'), false);
+})();
+</script>
+</body>
+</html>

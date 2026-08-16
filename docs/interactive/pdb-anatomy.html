@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy of a PDB file — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+
+    /* Record accents borrowed from CPK / molecular-viewer convention */
+    --c-meta:#5C6672;
+    --c-remark:#7A5C1E;
+    --c-seqres:#2F6B4F;
+    --c-atom:#1B4D8F;
+    --c-het:#9E2B25;
+    --c-struct:#5F4B8B;
+
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+    --fs-file:13px;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,3vw,24px) 28px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+
+  hr.div{border:0;border-top:1px solid var(--rule);margin:22px 0 16px}
+
+  /* ---- legend ---- */
+  .legend{
+    display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 20px;padding:0;list-style:none;
+  }
+  .legend li{
+    font-family:var(--mono);font-size:11px;font-weight:500;
+    padding:3px 8px;border:1px solid currentColor;border-radius:2px;
+  }
+  .k-meta{color:var(--c-meta)} .k-remark{color:var(--c-remark)}
+  .k-seqres{color:var(--c-seqres)} .k-atom{color:var(--c-atom)}
+  .k-het{color:var(--c-het)} .k-struct{color:var(--c-struct)}
+
+  /* ---- file viewer ---- */
+  .viewer{
+    background:#fff;border:1px solid var(--rule);border-radius:3px;
+    overflow:auto;max-height:46vh;-webkit-overflow-scrolling:touch;
+  }
+  .viewer-inner{display:inline-block;min-width:100%;padding:0 0 14px}
+
+  .ruler{
+    display:flex;font-family:var(--mono);font-size:9px;line-height:1;
+    color:#9AA3AD;background:var(--paper-2);
+    border-bottom:1px solid var(--rule);
+    padding:6px 14px 5px;position:sticky;top:0;z-index:2;
+  }
+  .ruler i{
+    width:1ch;flex:0 0 1ch;text-align:left;font-style:normal;
+    display:block;transition:background .12s ease,color .12s ease;
+  }
+  .ruler i.on{background:var(--ink);color:#fff;font-weight:700}
+
+  pre.file{
+    font-family:var(--mono);font-size:var(--fs-file);line-height:1.75;
+    margin:0;padding:12px 14px 0;white-space:pre;color:var(--ink);
+  }
+
+  .f{
+    border-radius:2px;padding:1px 0;cursor:pointer;
+    transition:background .12s ease;
+    text-decoration:underline;
+    text-decoration-color:rgba(0,0,0,.18);
+    text-underline-offset:3px;text-decoration-thickness:1px;
+  }
+  .f:hover,.f:focus-visible,.f.active{
+    background:rgba(0,0,0,.07);outline:none;
+    text-decoration-color:currentColor;
+  }
+  .f:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+
+  .r-meta{color:var(--c-meta)} .r-remark{color:var(--c-remark)}
+  .r-seqres{color:var(--c-seqres)} .r-atom{color:var(--c-atom)}
+  .r-het{color:var(--c-het)} .r-struct{color:var(--c-struct)}
+  .dim{color:#A9B1BA}
+
+  /* ---- annotation card ---- */
+  .card{
+    position:sticky;bottom:12px;margin-top:14px;
+    background:var(--ink);color:#EDEFF2;border-radius:3px;
+    padding:16px 18px;min-height:104px;
+  }
+  .card .slot{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:#8F98A3;margin:0 0 6px}
+  .card h2{font-size:17px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14px;color:#C4CBD3;max-width:72ch}
+  .card .cols{
+    font-family:var(--mono);font-size:11px;color:#8F98A3;margin:8px 0 0;
+  }
+  .card.empty h2,.card.empty p,.card.empty .cols{color:#6E7884}
+
+  .hint{font-size:12px;color:var(--ink-soft);margin:10px 0 0}
+  .hint code{font-family:var(--mono);font-size:11px}
+
+  footer{margin-top:40px;font-size:12px;color:var(--ink-soft);max-width:66ch}
+
+  @media (max-width:620px){
+    :root{--fs-file:11px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <ul class="legend">
+    <li class="k-meta">metadata</li>
+    <li class="k-remark">REMARK</li>
+    <li class="k-seqres">SEQRES</li>
+    <li class="k-atom">ATOM</li>
+    <li class="k-het">HETATM</li>
+    <li class="k-struct">structure</li>
+  </ul>
+
+  <div class="viewer">
+    <div class="viewer-inner">
+      <div class="ruler" id="ruler" aria-hidden="true"></div>
+<pre class="file" id="file"><span class="f r-meta" data-t="HEADER record" data-c="1-80" data-d="The first line of every PDB file. Holds the classification, the deposition date, and the 4-character PDB ID. Your quick orientation before any coordinates appear.">HEADER    ANTITUMOR PROTEIN/DNA                   11-JUL-95   1TUP</span>
+<span class="f r-meta" data-t="TITLE record" data-c="1-80" data-d="A human-readable description of what was actually solved. Read it carefully — it tells you whether you have a complex, a fragment, or an isolated domain.">TITLE     TUMOR SUPPRESSOR P53 COMPLEXED WITH DNA</span>
+<span class="f r-meta" data-t="EXPDTA record" data-c="1-80" data-d="The experimental method. X-ray means no hydrogens in the file, possible crystal-packing artefacts, and a single averaged static model.">EXPDTA    X-RAY DIFFRACTION</span>
+<span class="f r-remark" data-t="REMARK 2 — Resolution" data-c="1-80" data-d="The headline quality number. Lower is better. At 2.20 A the backbone and most side chains are trustworthy, but the longest flexible side chains are uncertain — which is exactly why this entry shows a high side-chain outlier percentage.">REMARK   2 RESOLUTION.    2.20 ANGSTROMS.</span>
+<span class="f r-remark" data-t="REMARK 465 — Missing residues" data-c="1-80" data-d="Residues present in the sequence but absent from the coordinates: disordered loops the experiment could not resolve. Every entry here is a gap you must rebuild before simulating.">REMARK 465 MISSING RESIDUES
+REMARK 465   M RES C SSSEQI
+REMARK 465     SER A    96</span>
+<span class="f r-remark" data-t="REMARK 470 — Missing atoms" data-c="1-80" data-d="Residues that ARE present but are missing some of their atoms — almost always side-chain tips with weak density. Here Lys132 is missing CG, CD, CE and NZ. Your preparation step has to rebuild these before pdb2gmx will accept the structure.">REMARK 470 MISSING ATOM
+REMARK 470   M RES CSSEQI  ATOMS
+REMARK 470     LYS A 132    CG   CD   CE   NZ</span>
+<span class="f r-seqres" data-t="SEQRES record" data-c="1-80" data-d="The FULL intended sequence of a chain, independent of what was actually observed. Comparing SEQRES against the ATOM records is how you find every gap in the model — this is the single most useful cross-check before simulating.">SEQRES   1 A  195  SER SER SER VAL PRO SER GLN LYS THR TYR GLN GLY SER</span>
+<span class="dim">...</span>
+ATOM      1  N   SER A  96      52.293  32.106  20.500  1.00 45.99           N
+<span class="f r-atom" data-t="Record name — ATOM" data-c="1-6" data-d="Columns 1-6. Marks a standard biopolymer atom: amino acid or nucleotide. Anything non-standard uses HETATM instead.">ATOM  </span><span class="f r-atom" data-t="Atom serial number" data-c="7-11" data-d="Columns 7-11. A unique running index for every atom in the file. This is the field that overflows past 99,999 and forces you to use mmCIF for very large systems.">    2</span> <span class="f r-atom" data-t="Atom name" data-c="13-16" data-d="Columns 13-16. The atom's name within its residue — CA is the alpha carbon, N the backbone nitrogen, CB the first side-chain carbon. Note the leading space: the element is right-justified in columns 13-14."> CA </span><span class="f r-atom" data-t="Alternate location indicator" data-c="17" data-d="Column 17. Blank normally. When an atom was modelled in two positions at once, you get A and B alternates here — you must pick one before simulating.">&nbsp;</span><span class="f r-atom" data-t="Residue name" data-c="18-20" data-d="Columns 18-20. The three-letter residue code. Watch for protonation-state variants: a protonated histidine is HSP in CHARMM but HIP in AMBER — same residue, different label.">SER</span> <span class="f r-atom" data-t="Chain identifier" data-c="22" data-d="Column 22. A single character naming the chain. Single-character means roughly 62 usable IDs — the other reason very large assemblies must move to mmCIF.">A</span><span class="f r-atom" data-t="Residue sequence number" data-c="23-26" data-d="Columns 23-26. The residue's position in the chain. Note this entry starts at 96, not 1 — the construct is the p53 core domain, not the full-length protein.">  96</span>   <span class="f r-atom" data-t="X coordinate" data-c="31-38" data-d="Columns 31-38. Position along X, in Angstroms. These three coordinate fields are the actual payload of the file — everything else is annotation.">  52.293</span><span class="f r-atom" data-t="Y coordinate" data-c="39-46" data-d="Columns 39-46. Position along Y, in Angstroms.">  32.106</span><span class="f r-atom" data-t="Z coordinate" data-c="47-54" data-d="Columns 47-54. Position along Z, in Angstroms.">  20.500</span><span class="f r-atom" data-t="Occupancy" data-c="55-60" data-d="Columns 55-60. The fraction of molecules in the crystal where this atom sits here. 1.00 means fully occupied; values below 1 signal partial or alternate occupancy worth inspecting.">  1.00</span><span class="f r-atom" data-t="B-factor (temperature factor)" data-c="61-66" data-d="Columns 61-66. How poorly localised this atom was — high values mean genuine mobility or weak density. Colour a structure by B-factor and the flexible loops light up immediately. This is how you judge LOCAL quality, which the global resolution number cannot tell you."> 45.99</span>           <span class="f r-atom" data-t="Element symbol" data-c="77-78" data-d="Columns 77-78, right-justified. The chemical element. Force-field tools rely on this, so a malformed element column is a common cause of pdb2gmx failing.">N</span>
+<span class="dim">...</span>
+<span class="f r-struct" data-t="TER record" data-c="1-80" data-d="Marks the end of a chain. It matters more than it looks: without a correct TER, the software can try to bond the last atom of one chain to the first atom of the next. In a five-chain complex like this, every break must be right.">TER    1734      THR A 289</span>
+<span class="f r-het" data-t="HETATM — zinc ion" data-c="1-6" data-d="A hetero-atom: anything that is not a standard residue. This zinc is tetrahedrally coordinated by His179 and three cysteines, and it holds the L2/L3 loops that form the DNA-binding surface. Do NOT strip it — and note that metals need special force-field parameterisation.">HETATM 1735 ZN    ZN A 401      31.245  15.887  28.113  1.00 22.15          ZN</span>
+<span class="f r-het" data-t="HETATM — crystallographic water" data-c="1-6" data-d="Ordered water seen in the density. The usual move is to strip bulk crystal waters and re-solvate yourself — but not blindly. Buried waters, and waters bridging the protein-DNA interface, are often structurally meaningful and worth keeping.">HETATM 1738  O   HOH A 501      45.112  28.334  12.907  1.00 38.42           O</span>
+<span class="f r-struct" data-t="CONECT record" data-c="1-80" data-d="Explicit connectivity for non-standard groups, where the software cannot infer bonds from residue templates alone. Standard residues do not need these.">CONECT 1735  512  681  704  708</span>
+<span class="f r-struct" data-t="END record" data-c="1-3" data-d="The last line of the file. Nothing after it is read.">END</span></pre>
+    </div>
+  </div>
+
+  <div class="card empty" id="card" role="status" aria-live="polite">
+    <p class="slot">Field detail</p>
+    <h2 id="cardTitle">Hover or tap a highlighted field</h2>
+    <p id="cardDesc">The column ruler above will light up to show exactly which character positions that field occupies.</p>
+    <p class="cols" id="cardCols"></p>
+  </div>
+
+  <p class="hint">
+    On a phone the file scrolls sideways — that is the honest experience of an 80-column
+    fixed-width format. Tap a field to pin its description.
+  </p>
+
+  <hr class="div">
+  <footer>
+    Coordinate values shown are illustrative and formatted to the real PDB column
+    specification; download the actual file with
+    <code>wget https://files.rcsb.org/download/1TUP.pdb</code> to inspect the genuine values.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var COLS = 80;
+  var ruler = document.getElementById('ruler');
+  var cells = [];
+
+  for (var i = 1; i <= COLS; i++){
+    var c = document.createElement('i');
+    // Print a digit every 10 columns so the ruler stays readable
+    c.textContent = (i % 10 === 0) ? String(i).slice(-2, -1) : (i === 1 ? '1' : '\u00A0');
+    ruler.appendChild(c);
+    cells.push(c);
+  }
+
+  var card     = document.getElementById('card');
+  var elTitle  = document.getElementById('cardTitle');
+  var elDesc   = document.getElementById('cardDesc');
+  var elCols   = document.getElementById('cardCols');
+  var fields   = document.querySelectorAll('.f');
+  var pinned   = null;
+
+  function clearRuler(){
+    for (var i = 0; i < cells.length; i++) cells[i].classList.remove('on');
+  }
+
+  function paintRuler(range){
+    clearRuler();
+    if (!range) return;
+    var parts = range.split('-');
+    var a = parseInt(parts[0], 10);
+    var b = parseInt(parts[1] || parts[0], 10);
+    if (isNaN(a)) return;
+    for (var i = a; i <= b && i <= COLS; i++){
+      if (cells[i - 1]) cells[i - 1].classList.add('on');
+    }
+  }
+
+  function show(el){
+    card.classList.remove('empty');
+    elTitle.textContent = el.getAttribute('data-t');
+    elDesc.textContent  = el.getAttribute('data-d');
+    var c = el.getAttribute('data-c');
+    elCols.textContent = c ? ('columns ' + c.replace('-', '\u2013')) : '';
+    paintRuler(c);
+  }
+
+  function reset(){
+    if (pinned) { show(pinned); return; }
+    card.classList.add('empty');
+    elTitle.textContent = 'Hover or tap a highlighted field';
+    elDesc.textContent  = 'The column ruler above will light up to show exactly which character positions that field occupies.';
+    elCols.textContent  = '';
+    clearRuler();
+  }
+
+  for (var i = 0; i < fields.length; i++){
+    (function(el){
+      el.setAttribute('tabindex', '0');
+      el.addEventListener('mouseenter', function(){ show(el); });
+      el.addEventListener('mouseleave', reset);
+      el.addEventListener('focus',      function(){ show(el); });
+      el.addEventListener('blur',       reset);
+      el.addEventListener('click', function(e){
+        e.preventDefault();
+        if (pinned === el){
+          pinned.classList.remove('active');
+          pinned = null;
+          reset();
+        } else {
+          if (pinned) pinned.classList.remove('active');
+          pinned = el;
+          el.classList.add('active');
+          show(el);
+        }
+      });
+    })(fields[i]);
+  }
+})();
+</script>
+</body>
+</html>

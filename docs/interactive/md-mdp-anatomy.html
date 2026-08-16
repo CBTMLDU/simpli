@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomy of md.mdp — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+
+    --c-comment:#8A929B;
+    --c-run:#7A5C1E;
+    --c-out:#2F6B4F;
+    --c-bond:#1B4D8F;
+    --c-inter:#9E2B25;
+    --c-temp:#B0562A;
+    --c-pres:#5F4B8B;
+
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+    --fs-file:13px;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,40px) 28px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+
+.callout{
+    background:#fff;border:1px solid var(--rule);border-left:3px solid var(--c-out);
+    border-radius:3px;padding:13px 15px;margin:0 0 24px;max-width:66ch;
+    font-size:14px;color:var(--ink-soft);
+  }
+  .callout b{color:var(--ink)}
+  .callout code{font-family:var(--mono);font-size:12px;color:var(--ink)}
+
+  .absent{
+    background:var(--paper-2);border:1px dashed var(--rule);border-radius:3px;
+    padding:11px 14px;margin:0 0 22px;max-width:66ch;
+    font-family:var(--mono);font-size:12px;color:var(--ink-soft);
+  }
+  .absent b{font-family:var(--sans);font-size:13px;color:var(--ink);display:block;margin-bottom:4px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 16px;padding:0;list-style:none}
+  .legend li{font-family:var(--mono);font-size:11px;font-weight:500;
+    padding:3px 8px;border:1px solid currentColor;border-radius:2px}
+  .k-run{color:var(--c-run)} .k-out{color:var(--c-out)}
+  .k-bond{color:var(--c-bond)} .k-inter{color:var(--c-inter)}
+  .k-temp{color:var(--c-temp)} .k-pres{color:var(--c-pres)}
+
+  .viewer{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    overflow:auto;max-height:46vh;-webkit-overflow-scrolling:touch}
+  pre.file{font-family:var(--mono);font-size:var(--fs-file);line-height:1.75;
+    margin:0;padding:16px 16px 6px;white-space:pre;color:var(--ink)}
+
+  .f{border-radius:2px;padding:1px 0;cursor:pointer;transition:background .12s ease;
+    text-decoration:underline;text-decoration-color:rgba(0,0,0,.18);
+    text-underline-offset:3px;text-decoration-thickness:1px}
+  .f:hover,.f:focus-visible,.f.active{background:rgba(0,0,0,.07);outline:none;
+    text-decoration-color:currentColor}
+  .f:focus-visible{box-shadow:0 0 0 2px var(--ink)}
+  .f.new{background:rgba(47,107,79,.10)}
+
+  .r-comment{color:var(--c-comment)} .r-run{color:var(--c-run)}
+  .r-out{color:var(--c-out)} .r-bond{color:var(--c-bond)}
+  .r-inter{color:var(--c-inter)} .r-temp{color:var(--c-temp)}
+  .r-pres{color:var(--c-pres)}
+
+  .card{position:sticky;bottom:12px;margin-top:14px;background:var(--ink);
+    color:#EDEFF2;border-radius:3px;padding:16px 18px;min-height:104px;z-index:3}
+  .card .slot{font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;color:#8F98A3;margin:0 0 6px}
+  .card h3{font-size:17px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14px;color:#C4CBD3;max-width:72ch}
+  .card.empty h3,.card.empty p{color:#6E7884}
+
+  .hint{font-size:12px;color:var(--ink-soft);margin:12px 0 0;max-width:64ch}
+  footer{margin-top:40px;font-size:12px;color:var(--ink-soft);max-width:66ch;
+    border-top:1px solid var(--rule);padding-top:16px}
+  footer code{font-family:var(--mono);font-size:11px}
+
+  @media (max-width:620px){ :root{--fs-file:11px} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="absent">
+    <b>The most important line here is the one that is missing.</b>
+    define = -DPOSRES
+    <span style="font-family:var(--sans);display:block;margin-top:6px">
+      It is simply gone. The springs come off and the protein moves freely for the first
+      time. <code>posre.itp</code> still exists and is still included in the topology —
+      nothing switches it on, so it does nothing.
+    </span>
+  </div>
+
+  <div class="callout">
+    <b>Everything else is fine-tuning.</b> The output section is expanded because we
+    actually want to keep this trajectory, and the coupling constants are relaxed
+    because we no longer need aggressive control — the system is already equilibrated.
+  </div>
+
+  <ul class="legend">
+    <li class="k-run">the run itself</li>
+    <li class="k-out">what to save</li>
+    <li class="k-bond">bond handling</li>
+    <li class="k-inter">interactions</li>
+    <li class="k-temp">thermostat</li>
+    <li class="k-pres">barostat</li>
+  </ul>
+
+  <div class="viewer">
+<pre class="file" id="file"><span class="f r-comment" data-t="title" data-d="A free-text label copied into the log file. Notice there is no 'define' line beneath it any more — that absence is the whole point of this stage.">title       = Production MD</span>
+
+<span class="f r-run" data-t="integrator and dt" data-d="Unchanged. Leap-frog dynamics with a 2 femtosecond timestep, exactly as in both equilibration stages.">integrator  = md
+dt          = 0.002</span>
+<span class="f r-run new" data-t="nsteps — now much longer" data-d="500000 steps at 2 femtoseconds each gives 1 nanosecond. Ten times longer than each equilibration stage, and still very short by real standards — published work usually runs hundreds of nanoseconds to microseconds. This is the exercise, not the experiment. To run longer, this is the only number you change.">nsteps      = 500000</span>
+
+<span class="f r-out new" data-t="nstxout and nstvout — the .trr" data-d="How often to write full-precision positions and velocities to the .trr file. Both are set to zero here, meaning nothing is written at all. That is deliberate: the .trr is very large, and you only need it for analyses that require velocities or forces. Most of the time you leave these off.">nstxout              = 0
+nstvout              = 0</span>
+<span class="f r-out new" data-t="nstxout-compressed — the .xtc" data-d="How often to save coordinates to the compressed trajectory. This is the file you will actually analyse. 5000 steps means one frame every 10 picoseconds, giving 100 frames over our 1 ns run. This single number is the trade-off: save too often and the files become unmanageable, too rarely and the motion you wanted to see is not in there. Decide it based on what your analysis needs, before you press go.">nstxout-compressed   = 5000</span>
+<span class="f r-out" data-t="nstenergy and nstlog" data-d="How often energies are recorded to the .edr and the log file is updated. Energies are cheap to store — they are just a handful of numbers per frame, not coordinates for every atom — so you can afford to save them more often than the trajectory.">nstenergy            = 5000
+nstlog               = 5000</span>
+
+<span class="f r-bond" data-t="continuation = yes" data-d="Still a continuation, carrying on from where NPT finished. Together with the checkpoint file supplied at the command line, this keeps the equilibrated state intact.">continuation         = yes</span>
+<span class="f r-bond" data-t="Bond constraints" data-d="Unchanged. Bonds involving hydrogen stay frozen by LINCS, which is what makes the 2 femtosecond timestep possible.">constraint_algorithm = lincs
+constraints          = h-bonds
+lincs_iter           = 1
+lincs_order          = 4</span>
+
+<span class="f r-inter" data-t="Neighbour searching and van der Waals" data-d="Unchanged from equilibration. The force-switch settings remain specific to CHARMM36 — they are part of how the force field was parameterised, not a tunable preference.">cutoff-scheme        = Verlet
+nstlist              = 20
+vdwtype              = cutoff
+vdw-modifier         = force-switch
+rvdw-switch          = 1.0
+rvdw                 = 1.2</span>
+<span class="f r-inter" data-t="Electrostatics — PME" data-d="Unchanged. When grompp runs it will print a PME load estimate, telling you what share of the computing effort goes into these long-range electrostatics. Useful when tuning performance on a larger machine.">coulombtype          = PME
+rcoulomb             = 1.2
+pme_order            = 4
+fourierspacing       = 0.16</span>
+
+<span class="f r-temp new" data-t="tau_t — now slower" data-d="The thermostat's response time has been relaxed from 0.1 to 1.0 picoseconds. During equilibration we wanted firm control to reach the target quickly. Now the system is already at temperature, so we want the thermostat to interfere as little as possible with the natural dynamics — those dynamics are the data. 1 ps is the current recommendation for V-rescale.">tcoupl               = V-rescale
+tc-grps              = Protein Non-Protein
+tau_t                = 1.0   1.0
+ref_t                = 300   300</span>
+
+<span class="f r-pres new" data-t="tau_p — also slower" data-d="The barostat is relaxed from 2 to 5 picoseconds, for the same reason. Pressure is a noisy quantity, and a gentle barostat lets the box breathe naturally rather than being constantly corrected. 5 ps is the current recommendation for C-rescale.">pcoupl               = C-rescale
+pcoupltype           = isotropic
+tau_p                = 5.0
+ref_p                = 1.0
+compressibility      = 4.5e-5</span>
+<span class="f r-pres new" data-t="nsttcouple and nstpcouple" data-d="How often the thermostat and barostat actually act, in steps. Calculating temperature and pressure requires gathering information from the whole system at once, which is slow on a GPU. Doing it every 100 steps instead of every step costs almost nothing in accuracy and saves real time. In recent GROMACS versions this is the default anyway.">nsttcouple           = 100
+nstpcouple           = 100</span>
+
+<span class="f r-inter" data-t="pbc = xyz" data-d="Periodic boundary conditions, still on in all three directions.">pbc                  = xyz</span>
+<span class="f r-temp" data-t="gen_vel = no" data-d="Still no. We are continuing an equilibrated system, so generating fresh velocities would discard everything the two equilibration stages achieved. If you wanted a truly independent replica, this is where you would say yes and supply a different seed — but then you would start from the equilibrated structure and re-equilibrate, not from here.">gen_vel              = no</span></pre>
+  </div>
+
+  <div class="card empty" id="card" role="status" aria-live="polite">
+    <p class="slot">Setting detail</p>
+    <h3>Hover or tap a setting</h3>
+    <p>Green shading marks the lines that differ from npt.mdp.</p>
+  </div>
+
+  <p class="hint">
+    Four .mdp files, and each one differed from the last by only a handful of lines.
+    That is the pattern worth taking away.
+  </p>
+
+  <footer>
+    Run it with
+    <code>gmx grompp -f md.mdp -c npt.gro -t npt.cpt -p topol.top -o md.tpr</code>
+    then <code>gmx mdrun -v -deffnm md</code>. Note the missing <code>-r</code> flag —
+    with no restraints, there is no reference structure to point at.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var card    = document.getElementById('card');
+  var elTitle = card.querySelector('h3');
+  var elDesc  = card.querySelector('p:not(.slot)');
+  var defT = elTitle.textContent, defD = elDesc.textContent;
+  var pinned = null;
+
+  function show(el){
+    card.classList.remove('empty');
+    elTitle.textContent = el.getAttribute('data-t');
+    elDesc.textContent  = el.getAttribute('data-d');
+  }
+  function reset(){
+    if (pinned){ show(pinned); return; }
+    card.classList.add('empty');
+    elTitle.textContent = defT;
+    elDesc.textContent  = defD;
+  }
+
+  var fields = document.querySelectorAll('.f');
+  for (var i = 0; i < fields.length; i++){
+    (function(el){
+      el.setAttribute('tabindex','0');
+      el.addEventListener('mouseenter', function(){ show(el); });
+      el.addEventListener('mouseleave', reset);
+      el.addEventListener('focus',      function(){ show(el); });
+      el.addEventListener('blur',       reset);
+      el.addEventListener('click', function(e){
+        e.preventDefault();
+        if (pinned === el){ pinned.classList.remove('active'); pinned = null; reset(); }
+        else {
+          if (pinned) pinned.classList.remove('active');
+          pinned = el; el.classList.add('active'); show(el);
+        }
+      });
+    })(fields[i]);
+  }
+})();
+</script>
+</body>
+</html>

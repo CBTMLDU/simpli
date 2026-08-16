@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------------------
+# videos.yaml — the workshop video manifest
+#
+# Every {{VIDEO: some-id}} placeholder in docs/*.md has an entry here.
+# build.py reads this file and replaces each placeholder with the right embed.
+#
+# source: youtube  -> embeds the original (correct for anything you did not make)
+#         local    -> a file in docs/assets/video/, autoplays on scroll
+#
+# caption: write what to LOOK FOR, not just what it is.
+# ---------------------------------------------------------------------------
+
+md-simulations:
+  section: "1"
+  source: youtube
+  id: vufzqrk2wpQ
+  caption: "Molecular dynamics simulations between different biomolecules."
+  credit: "CDDD"
+  credit_url: "https://youtube.com/@Bioinfo-CDDD"
+
+protein-folding:
+  section: "2.4.1"
+  source: youtube
+  id: sD6vyfTtE4U
+  caption: "Six microseconds of a protein folding."
+  credit: "TCBG, UIUC"
+  credit_url: "https://youtube.com/@tcbguiuc"
+
+# --- 2.4.2 Binding: the pair that shows how selectivity actually works -----
+fgfr1-compound6:
+  section: "2.4.2"
+  source: local
+  file: pnas.2317756121.sm03.mp4
+  caption: >-
+    FGFR1 bound to compound 6. The P-loop starts disordered and settles into an
+    extended conformation — watch it fold down over the ligand. This is what
+    blocks covalent attack on FGFR1.
+  credit: "Schönherr et al., PNAS 2024 — Movie S3"
+  credit_url: "https://doi.org/10.1073/pnas.2317756121"
+
+fgfr2-compound6:
+  section: "2.4.2"
+  source: local
+  file: pnas.2317756121.sm04.mp4
+  caption: >-
+    The same compound bound to FGFR2. Here Cys491 in the P-loop repeatedly swings
+    close to the ligand's reactive group — close enough for a covalent bond to
+    form. The same molecule, a nearly identical target, and a completely
+    different outcome.
+  credit: "Schönherr et al., PNAS 2024 — Movie S4"
+  credit_url: "https://doi.org/10.1073/pnas.2317756121"
+
+# --- 2.4.4 Modulating conditions: one variable changed --------------------
+sso7d-365k:
+  section: "2.4.4"
+  source: local
+  file: 1sso_365k.mp4
+  poster: 1sso_365k-poster.jpg
+  caption: >-
+    Sso7d at 365 K (92 °C). The fold holds — the beta sheet stays packed and the
+    helix keeps its position. This protein comes from an archaeon that lives at
+    around 80 °C, so this is close to its working temperature.
+  credit: "Simulated for this workshop. Structure: PDB 1SSO."
+  credit_url: "https://doi.org/10.2210/pdb1SSO/pdb"
+
+sso7d-400k:
+  section: "2.4.4"
+  source: local
+  file: 1sso_400k.mp4
+  poster: 1sso_400k-poster.jpg
+  caption: >-
+    The same protein at 400 K (127 °C). Watch the beta sheet come apart and the
+    chain lose its shape. Same molecule, same force field, same everything except
+    one number in the settings file.
+  credit: "Simulated for this workshop. Structure: PDB 1SSO."
+  credit_url: "https://doi.org/10.2210/pdb1SSO/pdb"
