@@ -36,6 +36,12 @@ WIDGET_HEIGHT = {
     'rmsd-explainer':             720,
     'rg-explainer':               740,
     'polarizability-explainer':   700,
+    'barrier-crossing': 780,
+    'umbrella-windows': 980,
+    'metadynamics-filling': 1080,
+    'weighted-ensemble-walkers': 1020,
+    'hidden-cv-hysteresis': 1000,
+
 }
 DEFAULT_HEIGHT = 700
 
