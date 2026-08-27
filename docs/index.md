@@ -17,7 +17,7 @@ Building our own specialized supercomputer is out of reach for most of us. Quant
 If we are serious about using computational biology to make a practical impact — work that can actually be translated to the bench or the clinic — we have to step out of that comfort zone. We need to move past the habit of running simple simulations, crossing our fingers, and hoping for a publishable result, and start thinking seriously about enhanced sampling and about where machine learning genuinely helps.
 
 Let this work be a nudge in that direction. It will not teach you how to run the experiments — but it will teach you to simulate carefully enough that the results are worth taking to someone who can, instead of spending our *computational money* on *lottery tickets*.
-
+- Khandker Afsin Azad
 ---
 
 [What is an MD simulation →](01-basics.md)
