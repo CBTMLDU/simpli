@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why waiting does not work — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+    --well:#1B4D8F;
+    --part:#9E2B25;
+    --good:#2F6B4F;
+    --warn:#B0562A;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,36px) 28px;
+  }
+  .wrap{max-width:940px;margin:0 auto}
+
+  .stage{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start}
+  @media (max-width:760px){ .stage{grid-template-columns:1fr} }
+
+  .canvas-box{background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+  canvas{display:block;width:100%}
+
+  .panel{background:#fff;border:1px solid var(--rule);border-radius:3px;padding:16px 16px 18px}
+  .panel h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 12px}
+
+  .readout .val{font-family:var(--mono);font-size:34px;font-weight:700;
+    letter-spacing:-.02em;line-height:1;display:block}
+  .readout .unit{font-family:var(--mono);font-size:13px;color:var(--ink-soft);
+    font-weight:500;margin-left:3px}
+  .readout .sub{font-size:11.5px;color:var(--ink-soft);margin-top:5px}
+
+  .comps{display:flex;gap:8px;margin:14px 0 16px}
+  .comps div{flex:1;background:var(--paper-2);border-radius:3px;padding:8px 9px}
+  .comps span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:600;margin-bottom:2px}
+  .comps b{font-family:var(--mono);font-size:15px;font-weight:700}
+
+  .ctrl{margin:0 0 13px}
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;font-weight:500;margin-bottom:5px}
+  .ctrl label span{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  input[type=range]{width:100%;accent-color:var(--well);margin:0}
+
+  .seg{display:flex;gap:0;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+  .seg button{
+    flex:1;font-family:var(--mono);font-size:12px;font-weight:500;
+    padding:7px 0;border:0;border-right:1px solid var(--rule);
+    background:#fff;color:var(--ink-soft);cursor:pointer;
+  }
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed=true]{background:var(--well);color:#fff;font-weight:700}
+  .seg button:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+  .presets button{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:6px 11px;border:1px solid var(--rule);background:#fff;
+    color:var(--ink);border-radius:3px;cursor:pointer;
+  }
+  .presets button:hover{background:var(--paper-2)}
+  .presets button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+  .lower{display:grid;grid-template-columns:1fr 260px;gap:16px;margin-top:16px;align-items:start}
+  @media (max-width:760px){ .lower{grid-template-columns:1fr} }
+
+  .plot-box{background:#fff;border:1px solid var(--rule);border-radius:3px;padding:14px 16px 10px}
+  .plot-box h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 4px}
+  .plot-box p.cap{font-size:11.5px;color:var(--ink-soft);margin:0 0 8px}
+
+  .law{background:#fff;border:1px solid var(--rule);border-radius:3px;padding:16px}
+  .law h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 10px}
+  .law .big{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1.1}
+  .law .big em{font-style:normal;color:var(--part)}
+  .law p{font-size:12px;color:var(--ink-soft);margin:9px 0 0}
+  .law code{font-family:var(--mono);font-size:11.5px;background:var(--paper-2);
+    padding:1px 4px;border-radius:2px}
+
+  .note{margin:16px 0 0;background:var(--ink);color:#C4CBD3;border-radius:3px;
+    padding:13px 15px;font-size:13.5px;min-height:78px}
+  .note b{color:#fff;display:block;margin-bottom:3px;font-size:13px}
+
+  .formula{margin:14px 0 0;font-size:12.5px;color:var(--ink-soft);
+    border-top:1px solid var(--rule);padding-top:12px}
+  .formula b{color:var(--ink)}
+  .formula code{font-family:var(--mono);font-size:11.5px;background:var(--paper-2);
+    padding:1px 4px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="stage">
+    <div class="canvas-box">
+      <canvas id="scene" width="1040" height="620"
+              aria-label="A particle jittering in one well of a double-well energy landscape,
+                          occasionally crossing the barrier to the other well"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Crossings observed</h2>
+      <div class="readout">
+        <span class="val" id="nCross">0</span>
+        <div class="sub" id="crossSub">nothing has happened yet</div>
+      </div>
+
+      <div class="comps">
+        <div><span>steps run</span><b id="steps">0</b></div>
+        <div><span>mean wait</span><b id="wait">—</b></div>
+      </div>
+
+      <div class="ctrl">
+        <label>Barrier height <span id="hOut">4.0 kcal/mol</span></label>
+        <input type="range" id="h" min="20" max="100" value="40" step="1">
+      </div>
+
+      <div class="ctrl">
+        <label>Compute budget <span id="cOut">×1</span></label>
+        <div class="seg" id="seg">
+          <button data-c="1" aria-pressed="true">×1</button>
+          <button data-c="10" aria-pressed="false">×10</button>
+          <button data-c="100" aria-pressed="false">×100</button>
+        </div>
+      </div>
+
+      <div class="presets">
+        <button data-h="25">Low barrier</button>
+        <button data-h="55">Getting slow</button>
+        <button data-h="84">The 8 kcal/mol wall</button>
+        <button data-p="reset">Clear counts</button>
+        <button data-p="pause" id="pauseBtn">Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lower">
+    <div class="plot-box">
+      <h2>What you have measured so far</h2>
+      <p class="cap">Every barrier height you try adds a point. Waiting time on a log scale.</p>
+      <canvas id="plot" width="1040" height="420"
+              aria-label="Measured mean waiting time against barrier height, on a logarithmic
+                          vertical axis, falling on a straight line"></canvas>
+    </div>
+
+    <div class="law">
+      <h2>The slope</h2>
+      <div class="big"><em id="decade">1.38</em> kcal/mol</div>
+      <p>is what it costs to make the wait <b>ten times longer</b>, at
+         <code>k<sub>B</sub>T = 0.6</code>. That is just
+         <code>k<sub>B</sub>T · ln 10</code> — the straight line in the plot,
+         measured from your own runs.</p>
+    </div>
+  </div>
+
+  <div class="note" id="note">
+    <b>Start at a low barrier and watch.</b>
+    The particle rattles inside one well and hops across every so often. Now push the
+    barrier slider to the right, one notch at a time, and watch how quickly the hopping
+    stops.
+  </div>
+
+  <div class="formula">
+    <b>What is being simulated.</b> One particle on a double well,
+    <code>V(x) = h(x² − 1)²</code>, moving by overdamped Langevin dynamics: a downhill
+    push plus a random thermal kick each step, with <code>k<sub>B</sub>T = 0.6 kcal/mol</code>.
+    Steps are the clock here, scaled so that every barrier height gets the same number of
+    attempts per step. The absolute time per step is arbitrary; the way the waiting time
+    scales with <code>h</code> is not. That scaling is the whole problem.
+  </div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var KT   = 0.6;      // kcal/mol
+  var DT   = 0.005;    // time per step, arbitrary units
+  // Mobility is scaled as 1/h so that every barrier height gets the same
+  // attempt rate. Without this the Kramers prefactor grows with h and the
+  // measured slope comes out near 1.6 rather than kB*T*ln10 = 1.38.
+  var MU = 1, NOISE = 1;
+  var COMMIT = 0.55;   // |x| beyond which the particle counts as settled in a well
+
+  // --- state -------------------------------------------------------------
+  var h = 4.0;
+  var budget = 1;
+  var running = true;
+  var x = -1, well = -1;
+  var steps = 0, sinceCross = 0, crossings = 0, waitSum = 0;
+  var occ = new Float64Array(120), occMax = 1;
+  var flash = 0;
+  var stats = {};       // h (1 dp string) -> {n: crossings, t: steps}
+
+  // --- elements ----------------------------------------------------------
+  var scene = document.getElementById('scene'), sx = scene.getContext('2d');
+  var plot  = document.getElementById('plot'),  px = plot.getContext('2d');
+  var elH = document.getElementById('h'), elHOut = document.getElementById('hOut');
+  var elCOut = document.getElementById('cOut'), elSeg = document.getElementById('seg');
+  var elN = document.getElementById('nCross'), elSub = document.getElementById('crossSub');
+  var elSteps = document.getElementById('steps'), elWait = document.getElementById('wait');
+  var elNote = document.getElementById('note'), elDec = document.getElementById('decade');
+  var elPause = document.getElementById('pauseBtn');
+
+  elDec.textContent = (KT * Math.LN10).toFixed(2);
+
+  // --- helpers -----------------------------------------------------------
+  function V(q){ var t = q*q - 1; return h * t * t; }
+  function dV(q){ return 4 * h * (q*q*q - q); }
+
+  function retune(){
+    MU = 1 / h;
+    NOISE = Math.sqrt(2 * KT * MU * DT);
+  }
+
+  function gauss(){
+    var u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+  }
+
+  function fmt(n){
+    if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n/1e3).toFixed(0) + 'k';
+    return String(Math.round(n));
+  }
+
+  function key(){ return h.toFixed(1); }
+
+  function bucket(){
+    var k = key();
+    if (!stats[k]) stats[k] = { n: 0, t: 0 };
+    return stats[k];
+  }
+
+  // --- integration -------------------------------------------------------
+  function step(){
+    x += -dV(x) * MU * DT + NOISE * gauss();
+    if (x >  2.2) x =  2.2;
+    if (x < -2.2) x = -2.2;
+
+    steps++; sinceCross++;
+    bucket().t++;
+
+    var b = Math.floor((x + 2) / 4 * occ.length);
+    if (b >= 0 && b < occ.length){
+      occ[b] += 1;
+      if (occ[b] > occMax) occMax = occ[b];
+    }
+
+    if (well === -1 && x > COMMIT){ well = 1; onCross(); }
+    else if (well === 1 && x < -COMMIT){ well = -1; onCross(); }
+  }
+
+  function onCross(){
+    crossings++;
+    waitSum += sinceCross;
+    bucket().n++;
+    sinceCross = 0;
+    flash = 1;
+  }
+
+  // --- drawing: the landscape -------------------------------------------
+  var W = scene.width, H = scene.height;
+  var PADX = 60, PADT = 46, PADB = 74;
+
+  function yScale(){ return Math.max(h, 3) * 1.35; }
+  function toX(q){ return PADX + (q + 1.85) / 3.7 * (W - 2*PADX); }
+  function toY(v){ return H - PADB - (v / yScale()) * (H - PADT - PADB); }
+
+  function drawScene(){
+    sx.clearRect(0, 0, W, H);
+
+    // occupancy, drawn as a faint carpet along the floor
+    var floor = H - PADB;
+    for (var i = 0; i < occ.length; i++){
+      if (occ[i] <= 0) continue;
+      var q0 = -2 + (i / occ.length) * 4, q1 = -2 + ((i+1) / occ.length) * 4;
+      var hh = (occ[i] / occMax) * 46;
+      sx.fillStyle = 'rgba(27,77,143,.13)';
+      sx.fillRect(toX(q0), floor - hh, Math.max(1, toX(q1) - toX(q0) - 1), hh);
+    }
+
+    // the well itself
+    sx.beginPath();
+    for (var q = -1.85, first = true; q <= 1.85; q += 0.01){
+      var yy = toY(V(q));
+      if (first){ sx.moveTo(toX(q), yy); first = false; }
+      else sx.lineTo(toX(q), yy);
+    }
+    sx.strokeStyle = '#1B4D8F'; sx.lineWidth = 2.5; sx.stroke();
+    sx.lineTo(toX(1.85), floor); sx.lineTo(toX(-1.85), floor); sx.closePath();
+    sx.fillStyle = 'rgba(27,77,143,.06)'; sx.fill();
+
+    // barrier top marker
+    var topY = toY(h);
+    sx.save();
+    sx.setLineDash([7, 6]); sx.strokeStyle = '#B0562A'; sx.lineWidth = 1.6;
+    sx.beginPath(); sx.moveTo(PADX, topY); sx.lineTo(W - PADX, topY); sx.stroke();
+    sx.restore();
+    sx.fillStyle = '#B0562A';
+    sx.font = '600 22px "Archivo", system-ui, sans-serif';
+    sx.textAlign = 'left';
+    sx.fillText(h.toFixed(1) + ' kcal/mol', PADX + 8, topY - 12);
+
+    // thermal budget, for comparison
+    var ktY = toY(KT);
+    sx.save();
+    sx.setLineDash([3, 5]); sx.strokeStyle = '#4A525C'; sx.lineWidth = 1.2;
+    sx.beginPath(); sx.moveTo(PADX, ktY); sx.lineTo(W - PADX, ktY); sx.stroke();
+    sx.restore();
+    sx.fillStyle = '#4A525C';
+    sx.font = '500 17px "Archivo", system-ui, sans-serif';
+    sx.fillText('kBT = 0.6 — what one kick is worth', PADX + 8, ktY - 9);
+
+    // the particle
+    var pxp = toX(x), pyp = toY(V(x));
+    if (flash > 0){
+      sx.beginPath(); sx.arc(pxp, pyp, 13 + 34*flash, 0, 6.2832);
+      sx.fillStyle = 'rgba(47,107,79,' + (0.34 * flash) + ')'; sx.fill();
+      flash -= 0.045; if (flash < 0) flash = 0;
+    }
+    sx.beginPath(); sx.arc(pxp, pyp, 12, 0, 6.2832);
+    sx.fillStyle = '#9E2B25'; sx.fill();
+    sx.strokeStyle = '#fff'; sx.lineWidth = 2.5; sx.stroke();
+
+    // floor rule + labels
+    sx.strokeStyle = '#C6CDD5'; sx.lineWidth = 1;
+    sx.beginPath(); sx.moveTo(PADX, floor); sx.lineTo(W - PADX, floor); sx.stroke();
+    sx.fillStyle = '#4A525C';
+    sx.font = '500 18px "Archivo", system-ui, sans-serif';
+    sx.textAlign = 'center';
+    sx.fillText('state A', toX(-1), floor + 30);
+    sx.fillText('state B', toX(1), floor + 30);
+    sx.textAlign = 'left';
+  }
+
+  // --- drawing: the measured law ----------------------------------------
+  var PW = plot.width, PH = plot.height;
+
+  function drawPlot(){
+    px.clearRect(0, 0, PW, PH);
+    var L = 92, R = PW - 26, T = 26, B = PH - 52;
+
+    var hMin = 2, hMax = 10;
+    var lgMin = 1, lgMax = 10;                       // log10 of waiting time in steps
+    function gx(hh){ return L + (hh - hMin)/(hMax - hMin) * (R - L); }
+    function gy(lg){ return B - (lg - lgMin)/(lgMax - lgMin) * (B - T); }
+
+    // grid + decade labels
+    px.strokeStyle = '#EEF1F4'; px.lineWidth = 1;
+    px.fillStyle = '#4A525C';
+    px.font = '500 15px "JetBrains Mono", monospace';
+    px.textAlign = 'right';
+    for (var d = lgMin; d <= lgMax; d += 2){
+      var yy = gy(d);
+      px.beginPath(); px.moveTo(L, yy); px.lineTo(R, yy); px.stroke();
+      px.fillText('10' + sup(d), L - 10, yy + 5);
+    }
+    px.textAlign = 'center';
+    px.font = '500 15px "Archivo", system-ui, sans-serif';
+    for (var hh = 2; hh <= 10; hh += 2){
+      px.beginPath(); px.moveTo(gx(hh), T); px.lineTo(gx(hh), B); px.stroke();
+      px.fillText(hh.toFixed(0), gx(hh), B + 24);
+    }
+    px.fillText('barrier height, kcal/mol', (L + R)/2, PH - 12);
+    px.save();
+    px.translate(24, (T + B)/2); px.rotate(-Math.PI/2);
+    px.fillText('steps waited', 0, 0);
+    px.restore();
+
+    // the theoretical line
+    px.beginPath();
+    for (var q = hMin, f = true; q <= hMax; q += 0.05){
+      var lg = Math.log(theoryWait(q)) / Math.LN10;
+      if (f){ px.moveTo(gx(q), gy(lg)); f = false; } else px.lineTo(gx(q), gy(lg));
+    }
+    px.strokeStyle = '#C6CDD5'; px.lineWidth = 2; px.setLineDash([6, 5]); px.stroke();
+    px.setLineDash([]);
+
+    // the student's own points
+    var any = false;
+    for (var k in stats){
+      var s = stats[k];
+      if (s.n < 1) continue;
+      any = true;
+      var hv = parseFloat(k), mw = s.t / s.n;
+      var X = gx(hv), Y = gy(Math.log(mw)/Math.LN10);
+      var solid = s.n >= 5;
+      px.beginPath(); px.arc(X, Y, solid ? 7 : 5.5, 0, 6.2832);
+      px.fillStyle = solid ? '#9E2B25' : 'rgba(158,43,37,.35)';
+      px.fill();
+      if (!solid){ px.strokeStyle = '#9E2B25'; px.lineWidth = 1.6; px.stroke(); }
+    }
+
+    px.textAlign = 'left';
+    px.fillStyle = '#4A525C';
+    px.font = '500 15px "Archivo", system-ui, sans-serif';
+    if (!any){
+      px.fillText('Run a few crossings and your points will appear here.', L + 12, T + 26);
+    } else {
+      px.fillText('faint = fewer than 5 crossings, so the estimate is still rough',
+                  L + 12, T + 26);
+    }
+  }
+
+  function sup(n){
+    var m = {0:'⁰',1:'¹',2:'²',3:'³',4:'⁴',5:'⁵',6:'⁶',7:'⁷',8:'⁸',9:'⁹'};
+    return String(n).split('').map(function(c){ return m[c] || c; }).join('');
+  }
+
+  // Kramers escape time, in steps — the dashed reference line
+  function theoryWait(hh){
+    var pref = Math.sqrt(32) / (2 * Math.PI);   // h-independent, see MU above
+    return 1 / (pref * Math.exp(-hh / KT) * DT);
+  }
+
+  // --- readouts ----------------------------------------------------------
+  function refresh(){
+    elN.textContent = crossings;
+    elSteps.textContent = fmt(steps);
+    elWait.textContent = crossings ? fmt(waitSum / crossings) : '—';
+
+    if (!crossings){
+      elSub.textContent = 'still waiting — ' + fmt(sinceCross) + ' steps so far';
+    } else {
+      elSub.textContent = 'one per ' + fmt(waitSum / crossings) + ' steps';
+    }
+
+    var msg;
+    if (h < 3.2){
+      msg = '<b>This is the easy case.</b> The barrier is only a few thermal kicks tall, ' +
+            'so the particle crosses constantly. A plain simulation would see this event ' +
+            'without any help at all — and that is exactly why nobody needs enhanced ' +
+            'sampling for it.';
+    } else if (h < 5.5){
+      msg = '<b>Getting slower.</b> Crossings still happen, but you now have to wait for ' +
+            'them. Notice the waiting time is climbing far faster than the barrier is — ' +
+            'that gap is the exponential doing its work.';
+    } else if (h < 7.5){
+      msg = '<b>Try the compute buttons now.</b> ×100 really does help, and it helps ' +
+            'exactly one hundred times. Then push the barrier up by 1.4 and watch that ' +
+            'entire hundred-fold gain disappear.';
+    } else {
+      msg = '<b>This is the wall from the chapter.</b> Around 8 kcal/mol separates what a ' +
+            'few hundred nanoseconds can reach from what biology actually does. Buying a ' +
+            'bigger machine moves you sideways along this axis; it does not move the wall.';
+    }
+    if (crossings === 0 && steps > 400000){
+      msg = '<b>Nothing has happened, and the run looks perfectly healthy.</b> ' +
+            'This is the failure mode from the end of 5.1 — a trajectory that never ' +
+            'crosses does not announce itself. It just looks converged.';
+    }
+    elNote.innerHTML = msg;
+  }
+
+  // --- loop --------------------------------------------------------------
+  var reduce = window.matchMedia &&
+               window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce){ running = false; elPause.textContent = 'Run'; }
+
+  var acc = 0;
+  function frame(){
+    if (running){
+      var n = 600 * budget;
+      for (var i = 0; i < n; i++) step();
+    }
+    drawScene();
+    if (++acc % 12 === 0){ drawPlot(); refresh(); }
+    requestAnimationFrame(frame);
+  }
+
+  // --- controls ----------------------------------------------------------
+  function setH(v){
+    h = v / 10;
+    retune();
+    elH.value = v;
+    elHOut.textContent = h.toFixed(1) + ' kcal/mol';
+    sinceCross = 0;
+    occ = new Float64Array(120); occMax = 1;
+    refresh(); drawPlot();
+  }
+
+  elH.addEventListener('input', function(){ setH(+elH.value); });
+
+  elSeg.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    budget = +b.getAttribute('data-c');
+    elCOut.textContent = '×' + budget;
+    Array.prototype.forEach.call(elSeg.querySelectorAll('button'), function(x){
+      x.setAttribute('aria-pressed', String(x === b));
+    });
+  });
+
+  document.querySelectorAll('.presets button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var hv = b.getAttribute('data-h'), p = b.getAttribute('data-p');
+      if (hv) setH(+hv);
+      if (p === 'reset'){
+        steps = 0; crossings = 0; waitSum = 0; sinceCross = 0;
+        stats = {}; occ = new Float64Array(120); occMax = 1;
+        refresh(); drawPlot();
+      }
+      if (p === 'pause'){
+        running = !running;
+        elPause.textContent = running ? 'Pause' : 'Run';
+      }
+    });
+  });
+
+  setH(40);
+  drawPlot();
+  refresh();
+  frame();
+})();
+</script>
+</body>
+</html>

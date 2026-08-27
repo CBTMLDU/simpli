@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filling the wells — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+    --well:#1B4D8F;
+    --part:#9E2B25;
+    --good:#2F6B4F;
+    --warn:#B0562A;
+    --sand:#C98A2E;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,36px) 28px;
+  }
+  .wrap{max-width:940px;margin:0 auto}
+
+  .stage{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start}
+  @media (max-width:760px){ .stage{grid-template-columns:1fr} }
+
+  .canvas-box{background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+  canvas{display:block;width:100%}
+
+  .panel{background:#fff;border:1px solid var(--rule);border-radius:3px;padding:16px 16px 18px}
+  .panel h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 12px}
+
+  .readout .val{font-family:var(--mono);font-size:34px;font-weight:700;
+    letter-spacing:-.02em;line-height:1;display:block}
+  .readout .val.ok{color:var(--good)}
+  .readout .val.mid{color:var(--warn)}
+  .readout .unit{font-family:var(--mono);font-size:13px;color:var(--ink-soft);
+    font-weight:500;margin-left:3px}
+  .readout .sub{font-size:11.5px;color:var(--ink-soft);margin-top:5px}
+
+  .comps{display:flex;gap:8px;margin:14px 0 16px}
+  .comps div{flex:1;background:var(--paper-2);border-radius:3px;padding:8px 9px}
+  .comps span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:600;margin-bottom:2px}
+  .comps b{font-family:var(--mono);font-size:15px;font-weight:700}
+
+  .ctrl{margin:0 0 13px}
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;font-weight:500;margin-bottom:5px}
+  .ctrl label span{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  input[type=range]{width:100%;accent-color:var(--well);margin:0}
+  .ctrl.off{opacity:.4}
+  .ctrl.off input[type=range]{accent-color:var(--ink-soft)}
+
+  .seg{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+    margin-bottom:14px}
+  .seg button{
+    flex:1;font-family:var(--sans);font-size:12.5px;font-weight:500;
+    padding:8px 0;border:0;border-right:1px solid var(--rule);
+    background:#fff;color:var(--ink-soft);cursor:pointer;
+  }
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed=true]{background:var(--well);color:#fff;font-weight:700}
+  .seg button:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+  .presets button{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:6px 11px;border:1px solid var(--rule);background:#fff;
+    color:var(--ink);border-radius:3px;cursor:pointer;
+  }
+  .presets button:hover{background:var(--paper-2)}
+  .presets button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+  .lower{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  @media (max-width:760px){ .lower{grid-template-columns:1fr} }
+
+  .plot-box{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    padding:14px 16px 12px}
+  .plot-box h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 4px}
+  .plot-box p.cap{font-size:11.5px;color:var(--ink-soft);margin:0 0 8px;min-height:32px}
+
+  .note{margin:16px 0 0;background:var(--ink);color:#C4CBD3;border-radius:3px;
+    padding:13px 15px;font-size:13.5px;min-height:86px}
+  .note b{color:#fff;display:block;margin-bottom:3px;font-size:13px}
+
+  .formula{margin:14px 0 0;font-size:12.5px;color:var(--ink-soft);
+    border-top:1px solid var(--rule);padding-top:12px}
+  .formula b{color:var(--ink)}
+  .formula code{font-family:var(--mono);font-size:11.5px;background:var(--paper-2);
+    padding:1px 4px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="stage">
+    <div class="canvas-box">
+      <canvas id="scene" width="1040" height="560"
+              aria-label="A three-well landscape gradually filling with deposited bias,
+                          with the particle riding on top of the accumulating fill"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Error in the estimate</h2>
+      <div class="readout">
+        <span class="val" id="errVal">—<span class="unit">kcal/mol</span></span>
+        <div class="sub" id="errSub">nothing deposited yet</div>
+      </div>
+
+      <div class="comps">
+        <div><span>hills</span><b id="hills">0</b></div>
+        <div><span>wells visited</span><b id="visited">1 of 3</b></div>
+      </div>
+
+      <div class="seg" id="mode">
+        <button data-m="plain" aria-pressed="true">Plain</button>
+        <button data-m="wt" aria-pressed="false">Well-tempered</button>
+      </div>
+
+      <div class="ctrl">
+        <label>Hill height <span id="wLbl">0.30</span></label>
+        <input type="range" id="w" min="5" max="80" value="30" step="1">
+      </div>
+
+      <div class="ctrl">
+        <label>Hill width <span id="sLbl">0.12</span></label>
+        <input type="range" id="s" min="5" max="30" value="12" step="1">
+      </div>
+
+      <div class="ctrl off" id="gCtrl">
+        <label>Bias factor <span id="gLbl">8</span></label>
+        <input type="range" id="g" min="2" max="24" value="8" step="1">
+      </div>
+
+      <div class="presets">
+        <button data-p="clear">Start over</button>
+        <button data-p="pause" id="pauseBtn">Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lower">
+    <div class="plot-box">
+      <h2>Estimate against truth</h2>
+      <p class="cap">The deposited bias, turned upside down, next to the landscape it is
+         trying to measure.</p>
+      <canvas id="plotA" width="620" height="420"
+              aria-label="The recovered free energy profile compared with the true one"></canvas>
+    </div>
+
+    <div class="plot-box">
+      <h2>Error over time</h2>
+      <p class="cap" id="capB">Plain deposition bottoms out, then drifts back up.
+         Well-tempered keeps decaying.</p>
+      <canvas id="plotB" width="620" height="420"
+              aria-label="A trace of the error in the estimate against simulated time"></canvas>
+    </div>
+  </div>
+
+  <div class="note" id="note">
+    <b>Start in Plain and let it fill.</b>
+    Bias piles up wherever the particle sits, the well it started in slowly floods, and it
+    spills into the next one. Watch the error trace on the right once all three wells are
+    full — then switch to Well-tempered and start over.
+  </div>
+
+  <div class="formula">
+    <b>What is being deposited.</b> A Gaussian of height <code>w</code> and width
+    <code>σ</code> dropped at the particle's position every 200 steps, added to a running
+    bias <code>B(x)</code> that the particle also feels. In plain metadynamics every hill
+    is the same size. In well-tempered, the height is scaled by
+    <code>exp(−B(x)/k<sub>B</sub>ΔT)</code>, so deposition slows as a region fills and the
+    estimate <code>−B·γ/(γ−1)</code> converges instead of overshooting. Left running long
+    enough, plain deposition reaches its best answer and then walks away from it.
+  </div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var KT = 0.6, DT = 0.005, NOISE = Math.sqrt(2*KT*DT);
+  var XLO = -2.7, XHI = 2.7, NB = 540, DX = (XHI - XLO)/NB;
+  var DEPOSIT_EVERY = 200;
+  var CMP_LO = -2.0, CMP_HI = 2.0;      // region the error is measured over
+
+  var mode = 'plain', w0 = 0.30, sig = 0.12, gamma = 8;
+  var running = true;
+
+  var x = -1.53, steps = 0, hills = 0, sinceDep = 0;
+  var B = new Float64Array(NB);
+  var visited = [true, false, false];
+  var trace = [], err = null;
+
+  var scene = document.getElementById('scene'), sx = scene.getContext('2d');
+  var pA = document.getElementById('plotA'), ax = pA.getContext('2d');
+  var pB = document.getElementById('plotB'), bx = pB.getContext('2d');
+  var elW = document.getElementById('w'), elS = document.getElementById('s'),
+      elG = document.getElementById('g');
+  var elWL = document.getElementById('wLbl'), elSL = document.getElementById('sLbl'),
+      elGL = document.getElementById('gLbl'), elGC = document.getElementById('gCtrl');
+  var elErr = document.getElementById('errVal'), elErrSub = document.getElementById('errSub');
+  var elHills = document.getElementById('hills'), elVis = document.getElementById('visited');
+  var elNote = document.getElementById('note'), elPause = document.getElementById('pauseBtn');
+  var elMode = document.getElementById('mode'), elCapB = document.getElementById('capB');
+
+  // --- the landscape -----------------------------------------------------
+  var VOFF = 6.851;   // shifts the global minimum to zero
+  function raw(q){
+    return -6.0*Math.exp(-Math.pow(q + 1.55, 2)/(2*0.42*0.42))
+           -4.2*Math.exp(-Math.pow(q, 2)/(2*0.42*0.42))
+           -6.8*Math.exp(-Math.pow(q - 1.55, 2)/(2*0.42*0.42))
+           + 0.05*Math.pow(q, 4);
+  }
+  function V(q){ return raw(q) + VOFF; }
+  function dV(q){ return (raw(q + 0.002) - raw(q - 0.002))/0.004; }
+
+  function binOf(q){ return Math.floor((q - XLO)/DX); }
+  function xOf(b){ return XLO + (b + 0.5)*DX; }
+
+  function biasAt(q){
+    var t = (q - XLO)/DX - 0.5, i = Math.floor(t);
+    if (i < 0) return B[0];
+    if (i >= NB - 1) return B[NB - 1];
+    var f = t - i;
+    return B[i]*(1 - f) + B[i + 1]*f;
+  }
+  function dBias(q){ return (biasAt(q + DX) - biasAt(q - DX))/(2*DX); }
+
+  function gauss(){
+    var u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  // --- dynamics ----------------------------------------------------------
+  function deposit(){
+    var height = w0;
+    if (mode === 'wt'){
+      var dT = KT*(gamma - 1);
+      height = w0*Math.exp(-biasAt(x)/dT);
+    }
+    var lo = Math.max(0, binOf(x - 4*sig)), hi = Math.min(NB - 1, binOf(x + 4*sig));
+    for (var b = lo; b <= hi; b++){
+      var d = xOf(b) - x;
+      B[b] += height*Math.exp(-d*d/(2*sig*sig));
+    }
+    hills++;
+  }
+
+  function step(){
+    var f = -dV(x) - dBias(x);
+    x += f*DT + NOISE*gauss();
+    if (x > XHI - 0.05) x = XHI - 0.05;
+    if (x < XLO + 0.05) x = XLO + 0.05;
+    steps++;
+
+    if (x < -0.75) visited[0] = true;
+    else if (x > 0.75) visited[2] = true;
+    else visited[1] = true;
+
+    if (++sinceDep >= DEPOSIT_EVERY){ sinceDep = 0; deposit(); }
+  }
+
+  // --- the estimate ------------------------------------------------------
+  function estimate(b){
+    var scale = mode === 'wt' ? gamma/(gamma - 1) : 1;
+    return -B[b]*scale;
+  }
+
+  function measureError(){
+    var lo = binOf(CMP_LO), hi = binOf(CMP_HI);
+    var n = 0, sum = 0, b;
+    for (b = lo; b <= hi; b++){
+      if (B[b] <= 1e-9) continue;
+      sum += estimate(b) - V(xOf(b)); n++;
+    }
+    if (n < 40){ err = null; return; }
+    var off = sum/n, acc = 0, m = 0;
+    for (b = lo; b <= hi; b++){
+      if (B[b] <= 1e-9) continue;
+      var d = estimate(b) - off - V(xOf(b));
+      acc += d*d; m++;
+    }
+    err = Math.sqrt(acc/m);
+    trace.push([steps, err]);
+    if (trace.length > 900) trace.shift();
+  }
+
+  // --- scene -------------------------------------------------------------
+  var W = scene.width, SH = scene.height, PADX = 54, PADT = 34, PADB = 56;
+  var VMAX = 11;
+  function toX(q){ return PADX + (q - XLO)/(XHI - XLO)*(W - 2*PADX); }
+  function toY(v){ return SH - PADB - (v/VMAX)*(SH - PADT - PADB); }
+
+  function drawScene(){
+    sx.clearRect(0, 0, W, SH);
+    var floor = SH - PADB;
+
+    // the deposited bias, drawn as fill sitting in the wells
+    sx.beginPath();
+    sx.moveTo(toX(XLO), toY(V(XLO)));
+    for (var q = XLO; q <= XHI; q += 0.01) sx.lineTo(toX(q), toY(V(q)));
+    for (var q2 = XHI; q2 >= XLO; q2 -= 0.01){
+      sx.lineTo(toX(q2), toY(Math.min(VMAX, V(q2) + biasAt(q2))));
+    }
+    sx.closePath();
+    sx.fillStyle = 'rgba(201,138,46,.30)'; sx.fill();
+    sx.strokeStyle = 'rgba(201,138,46,.95)'; sx.lineWidth = 1.8; sx.stroke();
+
+    // the true landscape
+    sx.beginPath();
+    for (var q3 = XLO, f = true; q3 <= XHI; q3 += 0.006){
+      var yy = toY(Math.min(VMAX, V(q3)));
+      if (f){ sx.moveTo(toX(q3), yy); f = false; } else sx.lineTo(toX(q3), yy);
+    }
+    sx.strokeStyle = '#16181D'; sx.lineWidth = 2.6; sx.stroke();
+
+    // the particle, riding the filled surface
+    var pxx = toX(x), pyy = toY(Math.min(VMAX, V(x) + biasAt(x)));
+    sx.beginPath(); sx.arc(pxx, pyy, 11, 0, 6.2832);
+    sx.fillStyle = '#9E2B25'; sx.fill();
+    sx.strokeStyle = '#fff'; sx.lineWidth = 2.4; sx.stroke();
+
+    sx.strokeStyle = '#C6CDD5'; sx.lineWidth = 1;
+    sx.beginPath(); sx.moveTo(PADX, floor); sx.lineTo(W - PADX, floor); sx.stroke();
+
+    sx.fillStyle = '#4A525C';
+    sx.font = '500 17px "Archivo", system-ui, sans-serif';
+    sx.textAlign = 'center';
+    sx.fillText('well A', toX(-1.53), floor + 28);
+    sx.fillText('well B', toX(0), floor + 28);
+    sx.fillText('well C', toX(1.53), floor + 28);
+    sx.textAlign = 'left';
+    sx.fillStyle = 'rgba(201,138,46,1)';
+    sx.font = '600 17px "Archivo", system-ui, sans-serif';
+    sx.fillText('deposited bias', PADX + 8, PADT + 6);
+  }
+
+  // --- estimate vs truth -------------------------------------------------
+  function drawA(){
+    var PW = pA.width, PH = pA.height;
+    ax.clearRect(0, 0, PW, PH);
+    var L = 62, R = PW - 18, T = 20, B0 = PH - 40, VM = 7.2;
+    function gx(q){ return L + (q - CMP_LO)/(CMP_HI - CMP_LO)*(R - L); }
+    function gy(v){ return B0 - (v/VM)*(B0 - T); }
+
+    ax.strokeStyle = '#EEF1F4'; ax.lineWidth = 1;
+    ax.fillStyle = '#4A525C';
+    ax.font = '500 14px "JetBrains Mono", monospace';
+    ax.textAlign = 'right';
+    for (var v = 0; v <= VM; v += 2){
+      ax.beginPath(); ax.moveTo(L, gy(v)); ax.lineTo(R, gy(v)); ax.stroke();
+      ax.fillText(v.toFixed(0), L - 9, gy(v) + 5);
+    }
+
+    ax.beginPath();
+    for (var q = CMP_LO, f = true; q <= CMP_HI; q += 0.01){
+      var yy = gy(Math.min(VM, V(q)));
+      if (f){ ax.moveTo(gx(q), yy); f = false; } else ax.lineTo(gx(q), yy);
+    }
+    ax.strokeStyle = '#C6CDD5'; ax.lineWidth = 4; ax.stroke();
+
+    // estimate, shifted to sit on the same footing as the truth
+    var lo = binOf(CMP_LO), hi = binOf(CMP_HI), n = 0, sum = 0, b;
+    for (b = lo; b <= hi; b++){ if (B[b] > 1e-9){ sum += estimate(b) - V(xOf(b)); n++; } }
+    if (n > 40){
+      var off = sum/n;
+      ax.beginPath();
+      var pen = false;
+      for (b = lo; b <= hi; b++){
+        if (B[b] <= 1e-9){ pen = false; continue; }
+        var val = estimate(b) - off;
+        if (val < -0.6 || val > VM){ pen = false; continue; }
+        var X = gx(xOf(b)), Y = gy(val);
+        if (!pen){ ax.moveTo(X, Y); pen = true; } else ax.lineTo(X, Y);
+      }
+      ax.strokeStyle = '#9E2B25'; ax.lineWidth = 2.4; ax.stroke();
+    }
+
+    ax.textAlign = 'left';
+    ax.fillStyle = '#4A525C';
+    ax.font = '500 14px "Archivo", system-ui, sans-serif';
+    ax.fillText('grey: truth   red: −bias', L + 6, PH - 12);
+  }
+
+  // --- error trace -------------------------------------------------------
+  function drawB(){
+    var PW = pB.width, PH = pB.height;
+    bx.clearRect(0, 0, PW, PH);
+    var L = 62, R = PW - 18, T = 20, B0 = PH - 40, EM = 2.4;
+
+    bx.strokeStyle = '#EEF1F4'; bx.lineWidth = 1;
+    bx.fillStyle = '#4A525C';
+    bx.font = '500 14px "JetBrains Mono", monospace';
+    bx.textAlign = 'right';
+    for (var e = 0; e <= EM; e += 0.6){
+      var yy = B0 - (e/EM)*(B0 - T);
+      bx.beginPath(); bx.moveTo(L, yy); bx.lineTo(R, yy); bx.stroke();
+      bx.fillText(e.toFixed(1), L - 9, yy + 5);
+    }
+
+    if (trace.length > 1){
+      var t0 = trace[0][0], t1 = trace[trace.length - 1][0];
+      var span = Math.max(1, t1 - t0);
+      bx.beginPath();
+      for (var i = 0; i < trace.length; i++){
+        var X = L + (trace[i][0] - t0)/span*(R - L);
+        var Y = B0 - (Math.min(EM, trace[i][1])/EM)*(B0 - T);
+        if (i === 0) bx.moveTo(X, Y); else bx.lineTo(X, Y);
+      }
+      bx.strokeStyle = mode === 'wt' ? '#2F6B4F' : '#B0562A';
+      bx.lineWidth = 2; bx.stroke();
+    }
+
+    bx.textAlign = 'left';
+    bx.fillStyle = '#4A525C';
+    bx.font = '500 14px "Archivo", system-ui, sans-serif';
+    bx.fillText('root-mean-square error, kcal/mol', L + 6, PH - 12);
+  }
+
+  // --- readouts ----------------------------------------------------------
+  function refresh(){
+    elHills.textContent = hills;
+    var nv = visited.filter(Boolean).length;
+    elVis.textContent = nv + ' of 3';
+
+    if (err === null){
+      elErr.innerHTML = '—<span class="unit">kcal/mol</span>';
+      elErrSub.textContent = 'not enough bias laid down yet';
+    } else {
+      elErr.innerHTML = err.toFixed(2) + '<span class="unit">kcal/mol</span>';
+      elErr.className = 'val ' + (err < 0.35 ? 'ok' : err < 0.9 ? 'mid' : '');
+      elErrSub.textContent = mode === 'wt'
+        ? 'should keep shrinking'
+        : 'will stop shrinking, then wander';
+    }
+
+    var msg;
+    if (nv < 3){
+      msg = '<b>Filling the first well.</b> Bias accumulates under the particle until the ' +
+            'well it started in is no longer the comfortable place to be. Nothing is ' +
+            'pushing it toward the exit — the exit is simply what is left once the floor ' +
+            'has risen.';
+    } else if (mode === 'plain' && hills > 220){
+      msg = '<b>Look at the error trace.</b> The particle is still exploring perfectly ' +
+            'well — sampling is not the problem. But the estimate stopped improving a ' +
+            'while ago, and is now drifting away from its own best answer. Every hill is ' +
+            'the same size however full the region already is, so the bias keeps piling ' +
+            'up past the point where it was right.';
+    } else if (mode === 'wt' && hills > 220){
+      msg = '<b>The hills are shrinking.</b> Each new one is scaled down by how much bias ' +
+            'is already there, so deposition slows exactly where the landscape is nearly ' +
+            'measured. The error trace decays instead of levelling off.';
+    } else if (w0 > 0.55){
+      msg = '<b>Big hills fill fast and measure badly.</b> You will reach all three wells ' +
+            'quickly, but the recovered curve is lumpy — each hill is a coarse brush ' +
+            'stroke. Small hills are sharper and much slower. That trade is the whole of ' +
+            'metadynamics tuning.';
+    } else {
+      msg = '<b>All three wells reached.</b> Now watch the error rather than the particle. ' +
+            'Whether it keeps falling or settles into a band is the only difference ' +
+            'between the two modes.';
+    }
+    elNote.innerHTML = msg;
+  }
+
+  // --- loop --------------------------------------------------------------
+  var reduce = window.matchMedia &&
+               window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce){ running = false; elPause.textContent = 'Run'; }
+
+  var tick = 0;
+  function frame(){
+    if (running) for (var i = 0; i < 300; i++) step();
+    drawScene();
+    if (++tick % 8 === 0){ measureError(); drawA(); drawB(); refresh(); }
+    requestAnimationFrame(frame);
+  }
+
+  // --- controls ----------------------------------------------------------
+  function reset(){
+    B = new Float64Array(NB);
+    x = -1.53; steps = 0; hills = 0; sinceDep = 0;
+    visited = [true, false, false]; trace = []; err = null;
+    elErr.className = 'val';
+    drawA(); drawB(); refresh();
+  }
+
+  elW.addEventListener('input', function(){
+    w0 = +elW.value/100; elWL.textContent = w0.toFixed(2);
+  });
+  elS.addEventListener('input', function(){
+    sig = +elS.value/100; elSL.textContent = sig.toFixed(2);
+  });
+  elG.addEventListener('input', function(){
+    gamma = +elG.value; elGL.textContent = gamma;
+  });
+
+  elMode.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    mode = b.getAttribute('data-m');
+    Array.prototype.forEach.call(elMode.querySelectorAll('button'), function(o){
+      o.setAttribute('aria-pressed', String(o === b));
+    });
+    elGC.className = mode === 'wt' ? 'ctrl' : 'ctrl off';
+    elCapB.textContent = mode === 'wt'
+      ? 'Well-tempered: deposition slows as regions fill, so the error keeps decaying.'
+      : 'Plain: every hill is the same size, so the error bottoms out and then drifts up.';
+    reset();
+  });
+
+  document.querySelectorAll('.presets button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var p = b.getAttribute('data-p');
+      if (p === 'clear') reset();
+      if (p === 'pause'){ running = !running; elPause.textContent = running ? 'Pause' : 'Run'; }
+    });
+  });
+
+  reset();
+  frame();
+})();
+</script>
+</body>
+</html>

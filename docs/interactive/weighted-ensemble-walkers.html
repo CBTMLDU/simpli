@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weighted ensemble — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+    --well:#1B4D8F;
+    --part:#9E2B25;
+    --good:#2F6B4F;
+    --warn:#B0562A;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,36px) 28px;
+  }
+  .wrap{max-width:940px;margin:0 auto}
+
+  .stage{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start}
+  @media (max-width:760px){ .stage{grid-template-columns:1fr} }
+
+  .canvas-box{background:#fff;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+  canvas{display:block;width:100%}
+
+  .panel{background:#fff;border:1px solid var(--rule);border-radius:3px;padding:16px 16px 18px}
+  .panel h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 12px}
+
+  .readout .val{font-family:var(--mono);font-size:30px;font-weight:700;
+    letter-spacing:-.02em;line-height:1;display:block}
+  .readout .val.none{color:var(--part)}
+  .readout .val.ok{color:var(--good)}
+  .readout .sub{font-size:11.5px;color:var(--ink-soft);margin-top:5px}
+
+  .comps{display:flex;gap:8px;margin:14px 0 14px}
+  .comps div{flex:1;background:var(--paper-2);border-radius:3px;padding:8px 9px}
+  .comps span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:600;margin-bottom:2px}
+  .comps b{font-family:var(--mono);font-size:15px;font-weight:700}
+
+  .wbar{height:12px;background:var(--paper-2);border-radius:2px;overflow:hidden;
+    display:flex;margin:0 0 4px}
+  .wbar i{display:block;height:100%;border-right:1px solid #fff}
+  .wnote{font-size:10.5px;color:var(--ink-soft);font-family:var(--mono);
+    margin:0 0 14px;display:flex;justify-content:space-between}
+
+  .ctrl{margin:0 0 13px}
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;font-weight:500;margin-bottom:5px}
+  .ctrl label span{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  input[type=range]{width:100%;accent-color:var(--well);margin:0}
+  .ctrl.off{opacity:.4}
+
+  .seg{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+    margin-bottom:14px}
+  .seg button{
+    flex:1;font-family:var(--sans);font-size:12.5px;font-weight:500;
+    padding:8px 0;border:0;border-right:1px solid var(--rule);
+    background:#fff;color:var(--ink-soft);cursor:pointer;
+  }
+  .seg button:last-child{border-right:0}
+  .seg button[aria-pressed=true]{background:var(--well);color:#fff;font-weight:700}
+  .seg button:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0}
+  .presets button{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:6px 11px;border:1px solid var(--rule);background:#fff;
+    color:var(--ink);border-radius:3px;cursor:pointer;
+  }
+  .presets button:hover{background:var(--paper-2)}
+  .presets button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+  .plot-box{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    padding:14px 16px 10px;margin-top:16px}
+  .plot-box h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 4px}
+  .plot-box p.cap{font-size:11.5px;color:var(--ink-soft);margin:0 0 8px}
+
+  .note{margin:16px 0 0;background:var(--ink);color:#C4CBD3;border-radius:3px;
+    padding:13px 15px;font-size:13.5px;min-height:86px}
+  .note b{color:#fff;display:block;margin-bottom:3px;font-size:13px}
+
+  .formula{margin:14px 0 0;font-size:12.5px;color:var(--ink-soft);
+    border-top:1px solid var(--rule);padding-top:12px}
+  .formula b{color:var(--ink)}
+  .formula code{font-family:var(--mono);font-size:11.5px;background:var(--paper-2);
+    padding:1px 4px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="stage">
+    <div class="canvas-box">
+      <canvas id="scene" width="1040" height="560"
+              aria-label="Many walkers spread across a double-well landscape, divided into
+                          bins, with walkers splitting where the ensemble is thin and
+                          merging where it is crowded"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Rate estimate</h2>
+      <div class="readout">
+        <span class="val none" id="rateVal">no events</span>
+        <div class="sub" id="rateSub">nothing has reached state B</div>
+      </div>
+
+      <div class="comps">
+        <div><span>walkers</span><b id="nw">1</b></div>
+        <div><span>steps</span><b id="st">0</b></div>
+      </div>
+
+      <div class="wbar" id="wbar"></div>
+      <div class="wnote"><span>total weight</span><b id="wtot">1.000000</b></div>
+
+      <div class="seg" id="mode">
+        <button data-m="we" aria-pressed="true">Weighted ensemble</button>
+        <button data-m="plain" aria-pressed="false">Plain</button>
+      </div>
+
+      <div class="ctrl">
+        <label>Barrier height <span id="hLbl">8.0 kcal/mol</span></label>
+        <input type="range" id="h" min="50" max="100" value="80" step="1">
+      </div>
+
+      <div class="ctrl" id="binCtrl">
+        <label>Bins <span id="bLbl">20</span></label>
+        <input type="range" id="b" min="6" max="26" value="20" step="1">
+      </div>
+
+      <div class="presets">
+        <button data-p="reset">Start over</button>
+        <button data-p="pause" id="pauseBtn">Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="plot-box">
+    <h2>Rate against the known answer</h2>
+    <p class="cap">Weight arriving in state B, divided by time. The dashed line is the true
+       rate for this barrier. Log scale — each gridline is a factor of ten, so landing within
+       a factor of a few of the line is a good short run.</p>
+    <canvas id="plot" width="1040" height="360"
+            aria-label="The running rate estimate converging toward the true rate"></canvas>
+  </div>
+
+  <div class="note" id="note">
+    <b>Watch the ensemble creep to the right.</b>
+    No walker is ever pushed. When one strays into a thinly populated bin it is copied, and
+    the copies split the parent's weight between them — so there are more trajectories
+    where the interesting things happen, and each one counts for less.
+  </div>
+
+  <div class="formula">
+    <b>What is conserved and what is not.</b> Every walker runs plain unbiased dynamics on
+    <code>V(x) = h(x² − 1)²</code> — no bias potential anywhere, and both modes run a
+    comparable number of walkers. Splitting divides a
+    walker's weight between its copies; merging adds two weights together. Total weight
+    stays at exactly 1, which is why the flux into state B is a real rate and not a
+    rescaled one. Walkers reaching B are returned to A carrying their weight, so the
+    ensemble measures steady-state flux.
+  </div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var KT = 0.6, DT = 0.005;
+  var XLO = -1.9, XHI = 1.9, TARGET = 1.0, SRC = -1.0;
+  var PER_BIN = 5, TAU = 40, BURN = 60000, PLAIN_N = 40;
+
+  var h = 8.0, nbins = 20, mode = 'we', running = true;
+  var mu = 1/h, noise = Math.sqrt(2*KT*mu*DT);
+  var walkers = [], steps = 0, flux = 0, measured = 0;
+  var trace = [], pulse = 0, recycled = 0;
+
+  var scene = document.getElementById('scene'), sx = scene.getContext('2d');
+  var plot = document.getElementById('plot'), px = plot.getContext('2d');
+  var elH = document.getElementById('h'), elB = document.getElementById('b');
+  var elHL = document.getElementById('hLbl'), elBL = document.getElementById('bLbl');
+  var elRate = document.getElementById('rateVal'), elRateSub = document.getElementById('rateSub');
+  var elNW = document.getElementById('nw'), elST = document.getElementById('st');
+  var elWbar = document.getElementById('wbar'), elWtot = document.getElementById('wtot');
+  var elMode = document.getElementById('mode'), elBinCtrl = document.getElementById('binCtrl');
+  var elNote = document.getElementById('note'), elPause = document.getElementById('pauseBtn');
+
+  function V(q){ var t = q*q - 1; return h*t*t; }
+  function dV(q){ return 4*h*(q*q*q - q); }
+  function trueRate(){ return (Math.sqrt(32)/(2*Math.PI))*Math.exp(-h/KT)*DT; }
+
+  function gauss(){
+    var u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  function binOf(q){
+    var b = Math.floor((q - XLO)/(XHI - XLO)*nbins);
+    return b < 0 ? 0 : b >= nbins ? nbins - 1 : b;
+  }
+
+  function reset(){
+    walkers = [];
+    var n0 = mode === 'we' ? PER_BIN : PLAIN_N;
+    for (var i = 0; i < n0; i++) walkers.push({ x: SRC, w: 1/n0, flash: 0 });
+    steps = 0; flux = 0; measured = 0; trace = []; recycled = 0;
+    mu = 1/h; noise = Math.sqrt(2*KT*mu*DT);
+    drawPlot(); refresh();
+  }
+
+  function step(){
+    for (var i = 0; i < walkers.length; i++){
+      var p = walkers[i];
+      p.x += -dV(p.x)*mu*DT + noise*gauss();
+      if (p.x > XHI) p.x = XHI;
+      if (p.x < XLO) p.x = XLO;
+      if (p.flash > 0) p.flash -= 0.05;
+      if (p.x > TARGET){
+        if (steps >= BURN) flux += p.w;
+        recycled++;
+        p.x = SRC; p.flash = 1;
+      }
+    }
+    steps++;
+    if (steps >= BURN) measured++;
+    if (mode === 'we' && steps % TAU === 0) resample();
+  }
+
+  function resample(){
+    var groups = {}, i, b;
+    for (i = 0; i < walkers.length; i++){
+      b = binOf(walkers[i].x);
+      (groups[b] = groups[b] || []).push(walkers[i]);
+    }
+    var out = [];
+    for (var key in groups){
+      var g = groups[key].slice();
+      while (g.length > PER_BIN){
+        g.sort(function(a, c){ return a.w - c.w; });
+        var a = g.shift(), c = g.shift();
+        var W = a.w + c.w;
+        var keep = Math.random() < a.w/W ? a : c;
+        keep.w = W; g.push(keep);
+      }
+      while (g.length < PER_BIN){
+        g.sort(function(a2, c2){ return c2.w - a2.w; });
+        var big = g.shift();
+        big.w /= 2;
+        g.push(big, { x: big.x, w: big.w, flash: 0 });
+      }
+      for (i = 0; i < g.length; i++) out.push(g[i]);
+    }
+    walkers = out;
+    pulse = 1;
+  }
+
+  function rateNow(){
+    return measured > 0 && flux > 0 ? flux/measured : 0;
+  }
+
+  // --- scene -------------------------------------------------------------
+  var W = scene.width, SH = scene.height, PADX = 52, PADT = 40, PADB = 62;
+  function toX(q){ return PADX + (q - XLO)/(XHI - XLO)*(W - 2*PADX); }
+  function toY(v){ return SH - PADB - (v/(h*1.25))*(SH - PADT - PADB); }
+
+  function drawScene(){
+    sx.clearRect(0, 0, W, SH);
+    var floor = SH - PADB;
+
+    // bins
+    if (mode === 'we'){
+      for (var b = 0; b <= nbins; b++){
+        var q = XLO + (XHI - XLO)*b/nbins;
+        sx.strokeStyle = pulse > 0 ? 'rgba(27,77,143,' + (0.15 + 0.5*pulse) + ')'
+                                   : 'rgba(198,205,213,.8)';
+        sx.lineWidth = 1;
+        sx.beginPath(); sx.moveTo(toX(q), PADT); sx.lineTo(toX(q), floor); sx.stroke();
+      }
+      if (pulse > 0){ pulse -= 0.06; if (pulse < 0) pulse = 0; }
+    }
+
+    // target region
+    sx.fillStyle = 'rgba(47,107,79,.09)';
+    sx.fillRect(toX(TARGET), PADT, toX(XHI) - toX(TARGET), floor - PADT);
+
+    // landscape
+    sx.beginPath();
+    for (var q2 = XLO, f = true; q2 <= XHI; q2 += 0.006){
+      var yy = toY(V(q2));
+      if (f){ sx.moveTo(toX(q2), yy); f = false; } else sx.lineTo(toX(q2), yy);
+    }
+    sx.strokeStyle = '#16181D'; sx.lineWidth = 2.6; sx.stroke();
+
+    // walkers, sized by log weight
+    var wmax = 1e-12;
+    for (var i = 0; i < walkers.length; i++) if (walkers[i].w > wmax) wmax = walkers[i].w;
+    for (var j = 0; j < walkers.length; j++){
+      var p = walkers[j];
+      var rel = Math.log(p.w/wmax)/Math.LN10;          // 0 down to negative
+      var t = Math.max(0, 1 + rel/8);                   // 8 decades of range
+      var r = 4 + 9*t;
+      var X = toX(p.x), Y = toY(V(p.x));
+      if (p.flash > 0){
+        sx.beginPath(); sx.arc(X, Y, r + 26*p.flash, 0, 6.2832);
+        sx.fillStyle = 'rgba(47,107,79,' + (0.4*p.flash) + ')'; sx.fill();
+      }
+      sx.beginPath(); sx.arc(X, Y, r, 0, 6.2832);
+      sx.fillStyle = 'rgba(27,77,143,' + (0.30 + 0.6*t) + ')'; sx.fill();
+      sx.strokeStyle = '#fff'; sx.lineWidth = 1.4; sx.stroke();
+    }
+
+    sx.strokeStyle = '#C6CDD5'; sx.lineWidth = 1;
+    sx.beginPath(); sx.moveTo(PADX, floor); sx.lineTo(W - PADX, floor); sx.stroke();
+
+    sx.fillStyle = '#4A525C';
+    sx.font = '500 17px "Archivo", system-ui, sans-serif';
+    sx.textAlign = 'center';
+    sx.fillText('state A — walkers return here', toX(-1), floor + 30);
+    sx.fillStyle = '#2F6B4F';
+    sx.fillText('state B', toX(1.45), floor + 30);
+    sx.textAlign = 'left';
+    sx.fillStyle = '#4A525C';
+    sx.font = '500 16px "Archivo", system-ui, sans-serif';
+    sx.fillText(mode === 'we' ? 'big dot = heavy weight, small dot = light'
+                              : 'all walkers carry equal weight — no splitting',
+                PADX + 6, PADT - 14);
+  }
+
+  // --- rate plot ---------------------------------------------------------
+  function drawPlot(){
+    var PW = plot.width, PH = plot.height;
+    px.clearRect(0, 0, PW, PH);
+    var L = 96, R = PW - 24, T = 22, B = PH - 44;
+    var lgLo = -10, lgHi = -5;
+    function gy(lg){ return B - (lg - lgLo)/(lgHi - lgLo)*(B - T); }
+
+    px.strokeStyle = '#EEF1F4'; px.lineWidth = 1;
+    px.fillStyle = '#4A525C';
+    px.font = '500 14px "JetBrains Mono", monospace';
+    px.textAlign = 'right';
+    for (var d = lgLo; d <= lgHi; d++){
+      px.beginPath(); px.moveTo(L, gy(d)); px.lineTo(R, gy(d)); px.stroke();
+      px.fillText('1e' + d, L - 10, gy(d) + 5);
+    }
+
+    // the known answer
+    var tl = Math.log(trueRate())/Math.LN10;
+    px.save();
+    px.setLineDash([7, 5]); px.strokeStyle = '#9E2B25'; px.lineWidth = 2;
+    px.beginPath(); px.moveTo(L, gy(tl)); px.lineTo(R, gy(tl)); px.stroke();
+    px.restore();
+    px.textAlign = 'left';
+    px.fillStyle = '#9E2B25';
+    px.font = '600 14px "Archivo", system-ui, sans-serif';
+    px.fillText('true rate', L + 8, gy(tl) - 8);
+
+    if (trace.length > 1){
+      px.beginPath();
+      for (var i = 0; i < trace.length; i++){
+        var X = L + i/(trace.length - 1)*(R - L);
+        var lg = Math.log(trace[i])/Math.LN10;
+        if (lg < lgLo) lg = lgLo;
+        if (lg > lgHi) lg = lgHi;
+        if (i === 0) px.moveTo(X, gy(lg)); else px.lineTo(X, gy(lg));
+      }
+      px.strokeStyle = '#1B4D8F'; px.lineWidth = 2.4; px.stroke();
+    } else {
+      px.fillStyle = '#4A525C';
+      px.font = '500 15px "Archivo", system-ui, sans-serif';
+      px.fillText(mode === 'we' ? 'waiting for the first weight to arrive in B…'
+                                : 'no walker has reached B — there is nothing to plot',
+                  L + 10, T + 26);
+    }
+
+    px.textAlign = 'center';
+    px.fillStyle = '#4A525C';
+    px.font = '500 14px "Archivo", system-ui, sans-serif';
+    px.fillText('simulated time', (L + R)/2, PH - 12);
+  }
+
+  // --- readouts ----------------------------------------------------------
+  function refresh(){
+    elNW.textContent = walkers.length;
+    elST.textContent = steps > 1e6 ? (steps/1e6).toFixed(1) + 'M'
+                     : steps > 1000 ? (steps/1000).toFixed(0) + 'k' : steps;
+
+    var tot = 0, i;
+    for (i = 0; i < walkers.length; i++) tot += walkers[i].w;
+    elWtot.textContent = tot.toFixed(6);
+
+    var html = '', sorted = walkers.slice().sort(function(a, c){ return c.w - a.w; });
+    for (i = 0; i < Math.min(sorted.length, 40); i++){
+      var pc = sorted[i].w/tot*100;
+      html += '<i style="width:' + pc + '%;background:rgba(27,77,143,' +
+              (0.25 + 0.65*(i < 8 ? 1 - i/10 : 0.2)) + ')"></i>';
+    }
+    elWbar.innerHTML = html;
+
+    var r = rateNow(), tr = trueRate();
+    if (r <= 0){
+      elRate.textContent = 'no events';
+      elRate.className = 'val none';
+      elRateSub.textContent = steps < BURN ? 'settling in…' : 'nothing has reached state B';
+    } else {
+      var ratio = r/tr;
+      elRate.textContent = r.toExponential(1);
+      elRate.className = 'val ' + (ratio > 0.2 && ratio < 5 ? 'ok' : '');
+      elRateSub.textContent = ratio >= 1
+        ? (ratio).toFixed(1) + '× the true rate'
+        : (1/ratio).toFixed(1) + '× below the true rate';
+    }
+
+    var msg;
+    if (mode === 'plain'){
+      msg = r > 0
+        ? '<b>Plain runs can do it too — at a low enough barrier.</b> Push the barrier ' +
+          'slider up and watch the events stop entirely, while the same number of walkers ' +
+          'keeps running just as hard.'
+        : '<b>Nothing is happening, and nothing will.</b> Forty walkers, all rattling in ' +
+          'state A, all obeying exactly the right physics. There is no bug here — the ' +
+          'barrier is simply too tall for unaided trajectories at this length. Switch to ' +
+          'weighted ensemble without changing anything else.';
+    } else if (r <= 0){
+      msg = '<b>The ensemble is working its way across.</b> Each time a walker strays into ' +
+            'a thinly occupied bin it gets copied, so the frontier keeps its own ' +
+            'population instead of being a lucky accident. Give it a moment.';
+    } else {
+      msg = '<b>Same physics, same compute, different bookkeeping.</b> No force was added ' +
+            'and no walker was pushed — the dynamics are exactly what plain MD would have ' +
+            'done. All that changed is which trajectories get copied and what each one ' +
+            'counts for, and that is enough to turn an unreachable event into a measured ' +
+            'rate.';
+    }
+    elNote.innerHTML = msg;
+  }
+
+  // --- loop --------------------------------------------------------------
+  var reduce = window.matchMedia &&
+               window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce){ running = false; elPause.textContent = 'Run'; }
+
+  var tick = 0;
+  function frame(){
+    if (running) for (var i = 0; i < 500; i++) step();
+    drawScene();
+    if (++tick % 8 === 0){
+      var r = rateNow();
+      if (r > 0){ trace.push(r); if (trace.length > 700) trace.shift(); }
+      drawPlot(); refresh();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // --- controls ----------------------------------------------------------
+  elH.addEventListener('input', function(){
+    h = +elH.value/10; elHL.textContent = h.toFixed(1) + ' kcal/mol'; reset();
+  });
+  elB.addEventListener('input', function(){
+    nbins = +elB.value; elBL.textContent = nbins; reset();
+  });
+
+  elMode.addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    mode = b.getAttribute('data-m');
+    Array.prototype.forEach.call(elMode.querySelectorAll('button'), function(o){
+      o.setAttribute('aria-pressed', String(o === b));
+    });
+    elBinCtrl.className = mode === 'we' ? 'ctrl' : 'ctrl off';
+    reset();
+  });
+
+  document.querySelectorAll('.presets button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var p = b.getAttribute('data-p');
+      if (p === 'reset') reset();
+      if (p === 'pause'){ running = !running; elPause.textContent = running ? 'Pause' : 'Run'; }
+    });
+  });
+
+  reset();
+  frame();
+})();
+</script>
+</body>
+</html>

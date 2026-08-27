@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The coordinate you did not measure — MD Simulation Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFF2;
+    --paper-2:#E3E7EB;
+    --ink:#16181D;
+    --ink-soft:#4A525C;
+    --rule:#C6CDD5;
+    --well:#1B4D8F;
+    --part:#9E2B25;
+    --good:#2F6B4F;
+    --warn:#B0562A;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Archivo", system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.55;
+    padding:clamp(16px,3vw,24px) clamp(14px,4vw,36px) 28px;
+  }
+  .wrap{max-width:940px;margin:0 auto}
+
+  .stage{display:grid;grid-template-columns:1fr 260px;gap:16px;align-items:start}
+  @media (max-width:760px){ .stage{grid-template-columns:1fr} }
+
+  .canvas-box{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    overflow:hidden;position:relative}
+  canvas{display:block;width:100%}
+  .tag{position:absolute;top:10px;left:12px;font-size:11px;letter-spacing:.1em;
+    text-transform:uppercase;font-weight:700;color:var(--ink-soft);
+    background:rgba(255,255,255,.86);padding:3px 8px;border-radius:2px}
+
+  .panel{background:#fff;border:1px solid var(--rule);border-radius:3px;padding:16px 16px 18px}
+  .panel h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 12px}
+
+  .readout .val{font-family:var(--mono);font-size:34px;font-weight:700;
+    letter-spacing:-.02em;line-height:1;display:block}
+  .readout .val.ok{color:var(--good)}
+  .readout .val.bad{color:var(--part)}
+  .readout .unit{font-family:var(--mono);font-size:13px;color:var(--ink-soft);
+    font-weight:500;margin-left:3px}
+  .readout .sub{font-size:11.5px;color:var(--ink-soft);margin-top:5px}
+
+  .comps{display:flex;gap:8px;margin:14px 0 16px}
+  .comps div{flex:1;background:var(--paper-2);border-radius:3px;padding:8px 9px}
+  .comps span{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:600;margin-bottom:2px}
+  .comps b{font-family:var(--mono);font-size:15px;font-weight:700}
+  .comps b.f{color:var(--well)}
+  .comps b.r{color:var(--part)}
+
+  .prog{height:6px;background:var(--paper-2);border-radius:2px;overflow:hidden;
+    margin:0 0 5px}
+  .prog i{display:block;height:100%;width:0;background:var(--well)}
+  .progLbl{font-size:11px;color:var(--ink-soft);font-family:var(--mono);
+    margin:0 0 14px}
+
+  .ctrl{margin:0 0 13px}
+  .ctrl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:13px;font-weight:500;margin-bottom:5px}
+  .ctrl label span{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  input[type=range]{width:100%;accent-color:var(--well);margin:0}
+
+  .reveal{width:100%;font-family:var(--sans);font-size:13px;font-weight:600;
+    padding:10px 0;border:1px solid var(--ink);background:var(--ink);color:#fff;
+    border-radius:3px;cursor:pointer;margin-bottom:12px}
+  .reveal[data-on=true]{background:#fff;color:var(--ink)}
+  .reveal:focus-visible{outline:2px solid var(--well);outline-offset:2px}
+
+  .presets{display:flex;flex-wrap:wrap;gap:6px}
+  .presets button{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:6px 11px;border:1px solid var(--rule);background:#fff;
+    color:var(--ink);border-radius:3px;cursor:pointer;
+  }
+  .presets button:hover{background:var(--paper-2)}
+  .presets button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+  .plot-box{background:#fff;border:1px solid var(--rule);border-radius:3px;
+    padding:14px 16px 10px;margin-top:16px}
+  .plot-box h2{font-size:12px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;color:var(--ink-soft);margin:0 0 4px}
+  .plot-box p.cap{font-size:11.5px;color:var(--ink-soft);margin:0 0 8px}
+  .key{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-soft);
+    margin:6px 0 0}
+  .key i{display:inline-block;width:20px;height:3px;vertical-align:middle;
+    margin-right:6px;border-radius:2px}
+
+  .note{margin:16px 0 0;background:var(--ink);color:#C4CBD3;border-radius:3px;
+    padding:13px 15px;font-size:13.5px;min-height:92px}
+  .note b{color:#fff;display:block;margin-bottom:3px;font-size:13px}
+
+  .formula{margin:14px 0 0;font-size:12.5px;color:var(--ink-soft);
+    border-top:1px solid var(--rule);padding-top:12px}
+  .formula b{color:var(--ink)}
+  .formula code{font-family:var(--mono);font-size:11.5px;background:var(--paper-2);
+    padding:1px 4px;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="stage">
+    <div class="canvas-box">
+      <canvas id="scene" width="1040" height="520"
+              aria-label="The simulation as seen through the chosen coordinate only, or
+                          revealed as a two-dimensional landscape with a hidden gate"></canvas>
+      <div class="tag" id="tag">measuring x only</div>
+    </div>
+
+    <div class="panel">
+      <h2>Hysteresis</h2>
+      <div class="readout">
+        <span class="val" id="gapVal">—<span class="unit">kcal/mol</span></span>
+        <div class="sub" id="gapSub">run a sweep in each direction</div>
+      </div>
+
+      <div class="comps">
+        <div><span>out barrier</span><b class="f" id="bF">—</b></div>
+        <div><span>back barrier</span><b class="r" id="bR">—</b></div>
+      </div>
+
+      <div class="prog"><i id="progBar"></i></div>
+      <div class="progLbl" id="progLbl">settling…</div>
+
+      <div class="ctrl">
+        <label>Gate speed <span id="gLbl">frozen</span></label>
+        <input type="range" id="g" min="0" max="100" value="18" step="1">
+      </div>
+
+      <button class="reveal" id="revealBtn" data-on="false">Reveal what happened</button>
+
+      <div class="presets">
+        <button data-p="restart">New sweep</button>
+        <button data-p="pause" id="pauseBtn">Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="plot-box">
+    <h2>The profile you would publish</h2>
+    <p class="cap">Work accumulated as the restraint drags the system out and then back,
+       averaged over six repeats. Both curves zeroed at the left.</p>
+    <canvas id="plot" width="1040" height="380"
+            aria-label="Two free energy profiles, one from the outward sweep and one from
+                        the return sweep, which may or may not lie on top of each other"></canvas>
+    <div class="key">
+      <span><i style="background:#1B4D8F"></i>outward sweep</span>
+      <span><i style="background:#9E2B25"></i>return sweep</span>
+    </div>
+  </div>
+
+  <div class="note" id="note">
+    <b>You have chosen one coordinate, and it looks reasonable.</b>
+    A restraint drags the system from state A to state B and back, and the work it takes
+    is the profile. Watch the two curves. If they land on top of each other, you have your
+    answer. If they do not, something you are not measuring is lagging behind.
+  </div>
+
+  <div class="formula">
+    <b>What is actually there.</b> Two coordinates. <code>x</code> is the one you chose —
+    a distance, say. <code>y</code> is a gate that has to swing open before the crossing is
+    cheap, and it moves on its own timescale, set by the slider. Every profile on this page
+    is built only from <code>x</code>, exactly as it would be in a real study. Nothing in
+    that output reports the existence of <code>y</code>.
+  </div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var KT = 0.6, DT = 0.005, K = 25, XA = -1.4, XB = 1.4, R = 6;
+  var SWEEP = 40000, EQ = 4000, SAMPLE = 250;
+
+  var muY = 3e-4, revealed = false, running = true;
+  var phase = 'eq', s = 0;
+  var P = [], Wf = [], Wb = [];
+  var curF = [], curB = [], lastF = [], lastB = [];
+  var trailF = [], trailB = [];
+  var gap = null, barF = null, barR = null;
+
+  var scene = document.getElementById('scene'), sx = scene.getContext('2d');
+  var plot = document.getElementById('plot'), px = plot.getContext('2d');
+  var elG = document.getElementById('g'), elGL = document.getElementById('gLbl');
+  var elGap = document.getElementById('gapVal'), elGapSub = document.getElementById('gapSub');
+  var elBF = document.getElementById('bF'), elBR = document.getElementById('bR');
+  var elReveal = document.getElementById('revealBtn'), elTag = document.getElementById('tag');
+  var elProg = document.getElementById('progBar'), elProgLbl = document.getElementById('progLbl');
+  var elNote = document.getElementById('note'), elPause = document.getElementById('pauseBtn');
+
+  // --- the landscape -----------------------------------------------------
+  function openFrac(y){ return 1/(1 + Math.exp(-(y - 0.5)/0.10)); }
+  function Vgate(y){ var u = 2*y - 1; return 1.2*Math.pow(u*u - 1, 2) + 1.0*u; }
+  function V(x, y){
+    return 1.2*Math.pow(x*x - 1, 2)
+         + 9.0*Math.exp(-x*x/(2*0.32*0.32))*(1 - openFrac(y))
+         + Vgate(y);
+  }
+  function dVx(x, y){ return (V(x + 0.002, y) - V(x - 0.002, y))/0.004; }
+  function dVy(x, y){ return (V(x, y + 0.002) - V(x, y - 0.002))/0.004; }
+
+  function gauss(){
+    var u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  // --- run ---------------------------------------------------------------
+  function restart(){
+    P = [];
+    for (var r = 0; r < R; r++) P.push({ x: -1, y: 0 });
+    Wf = new Array(R); Wb = new Array(R);
+    for (var i = 0; i < R; i++){ Wf[i] = 0; Wb[i] = 0; }
+    phase = 'eq'; s = 0;
+    curF = []; curB = []; trailF = []; trailB = [];
+    refresh();
+  }
+
+  function meanW(arr){
+    var t = 0;
+    for (var i = 0; i < R; i++) t += arr[i];
+    return t/R;
+  }
+
+  function step(){
+    var nz = Math.sqrt(2*KT*DT), nzy = Math.sqrt(2*KT*muY*DT);
+    var x0, dx0 = 0, r, p;
+
+    if (phase === 'eq'){ x0 = XA; }
+    else if (phase === 'fwd'){ x0 = XA + (XB - XA)*s/SWEEP; dx0 = (XB - XA)/SWEEP; }
+    else { x0 = XB + (XA - XB)*s/SWEEP; dx0 = (XA - XB)/SWEEP; }
+
+    for (r = 0; r < R; r++){
+      p = P[r];
+      if (phase === 'fwd') Wf[r] += -K*(p.x - x0)*dx0;
+      else if (phase === 'back') Wb[r] += -K*(p.x - x0)*dx0;
+      p.x += (-dVx(p.x, p.y) - K*(p.x - x0))*DT + nz*gauss();
+      p.y += -dVy(p.x, p.y)*muY*DT + nzy*gauss();
+      if (p.y < -0.5) p.y = -0.5;
+      if (p.y > 1.6) p.y = 1.6;
+    }
+
+    if (phase !== 'eq' && s % SAMPLE === 0){
+      var pt = [x0, phase === 'fwd' ? meanW(Wf) : meanW(Wb)];
+      if (phase === 'fwd'){ curF.push(pt); trailF.push([P[0].x, P[0].y]); }
+      else { curB.push(pt); trailB.push([P[0].x, P[0].y]); }
+    }
+
+    s++;
+    if (phase === 'eq' && s >= EQ){ phase = 'fwd'; s = 0; }
+    else if (phase === 'fwd' && s >= SWEEP){ phase = 'back'; s = 0; }
+    else if (phase === 'back' && s >= SWEEP){ finish(); }
+  }
+
+  function finish(){
+    lastF = curF.slice();
+    var tot = meanW(Wb);
+    lastB = curB.map(function(q){ return [q[0], q[1] - tot]; });
+
+    // hysteresis: the widest disagreement between the two curves
+    gap = 0;
+    for (var i = 0; i < lastF.length; i++){
+      var best = null, bd = 1e9;
+      for (var j = 0; j < lastB.length; j++){
+        var d = Math.abs(lastB[j][0] - lastF[i][0]);
+        if (d < bd){ bd = d; best = lastB[j]; }
+      }
+      if (best) gap = Math.max(gap, Math.abs(lastF[i][1] - best[1]));
+    }
+    barF = Math.max.apply(null, lastF.map(function(q){ return q[1]; }));
+    barR = Math.max.apply(null, lastB.map(function(q){ return q[1]; }));
+
+    // start the next cycle from scratch
+    P = [];
+    for (var r = 0; r < R; r++) P.push({ x: -1, y: 0 });
+    for (var k = 0; k < R; k++){ Wf[k] = 0; Wb[k] = 0; }
+    phase = 'eq'; s = 0; curF = []; curB = []; trailF = []; trailB = [];
+  }
+
+  // --- the map, rendered once --------------------------------------------
+  var MAPX0 = -1.65, MAPX1 = 1.65, MAPY0 = -0.5, MAPY1 = 1.55;
+  var mapCanvas = document.createElement('canvas');
+  mapCanvas.width = 520; mapCanvas.height = 300;
+  (function renderMap(){
+    var c = mapCanvas.getContext('2d');
+    var img = c.createImageData(mapCanvas.width, mapCanvas.height);
+    for (var j = 0; j < mapCanvas.height; j++){
+      for (var i = 0; i < mapCanvas.width; i++){
+        var x = MAPX0 + (i/mapCanvas.width)*(MAPX1 - MAPX0);
+        var y = MAPY1 - (j/mapCanvas.height)*(MAPY1 - MAPY0);
+        var v = V(x, y) + 1;                       // shift so the floor sits near zero
+        var t = Math.max(0, Math.min(1, v/9));
+        var band = (Math.floor(v*1.6) % 2 === 0) ? 0 : 8;   // faint contour banding
+        var idx = (j*mapCanvas.width + i)*4;
+        img.data[idx]     = 237 - t*(237 - 22) - band;
+        img.data[idx + 1] = 239 - t*(239 - 66) - band;
+        img.data[idx + 2] = 242 - t*(242 - 120) - band;
+        img.data[idx + 3] = 255;
+      }
+    }
+    c.putImageData(img, 0, 0);
+  })();
+
+  // --- scene -------------------------------------------------------------
+  var W = scene.width, SH = scene.height;
+
+  function drawScene(){
+    sx.clearRect(0, 0, W, SH);
+    if (revealed) drawRevealed(); else drawBlind();
+  }
+
+  function anchorNow(){
+    if (phase === 'eq') return XA;
+    if (phase === 'fwd') return XA + (XB - XA)*s/SWEEP;
+    return XB + (XA - XB)*s/SWEEP;
+  }
+
+  function drawBlind(){
+    var L = 70, Rr = W - 70, mid = SH*0.56;
+    function gx(q){ return L + (q - MAPX0)/(MAPX1 - MAPX0)*(Rr - L); }
+
+    // the lane
+    sx.fillStyle = '#F4F6F8';
+    sx.fillRect(L, mid - 62, Rr - L, 124);
+    sx.strokeStyle = '#C6CDD5'; sx.lineWidth = 1;
+    sx.strokeRect(L, mid - 62, Rr - L, 124);
+
+    // states
+    sx.fillStyle = 'rgba(27,77,143,.08)';
+    sx.fillRect(gx(-1.45), mid - 62, gx(-0.7) - gx(-1.45), 124);
+    sx.fillRect(gx(0.7), mid - 62, gx(1.45) - gx(0.7), 124);
+
+    // the moving restraint
+    var ax = gx(anchorNow());
+    sx.save();
+    sx.setLineDash([5, 5]); sx.strokeStyle = '#B0562A'; sx.lineWidth = 2;
+    sx.beginPath(); sx.moveTo(ax, mid - 92); sx.lineTo(ax, mid + 92); sx.stroke();
+    sx.restore();
+    sx.fillStyle = '#B0562A';
+    sx.font = '600 16px "Archivo", system-ui, sans-serif';
+    sx.textAlign = 'center';
+    sx.fillText('restraint', ax, mid - 100);
+
+    // the walkers, x only
+    for (var r = 0; r < R; r++){
+      var X = gx(P[r].x), Y = mid - 40 + (r/(R - 1))*80;
+      sx.beginPath(); sx.arc(X, Y, 8, 0, 6.2832);
+      sx.fillStyle = phase === 'back' ? 'rgba(158,43,37,.85)' : 'rgba(27,77,143,.85)';
+      sx.fill();
+      sx.strokeStyle = '#fff'; sx.lineWidth = 2; sx.stroke();
+    }
+
+    sx.fillStyle = '#4A525C';
+    sx.font = '500 18px "Archivo", system-ui, sans-serif';
+    sx.fillText('state A', gx(-1.07), mid + 96);
+    sx.fillText('state B', gx(1.07), mid + 96);
+    sx.textAlign = 'left';
+    sx.font = '500 17px "Archivo", system-ui, sans-serif';
+    sx.fillText('this is the whole of what your collective variable can see',
+                L, SH - 26);
+
+    sx.textAlign = 'right';
+    sx.fillStyle = phase === 'back' ? '#9E2B25' : '#1B4D8F';
+    sx.font = '700 17px "Archivo", system-ui, sans-serif';
+    sx.fillText(phase === 'eq' ? 'settling' : phase === 'fwd' ? 'sweeping out' : 'sweeping back',
+                Rr, SH - 26);
+    sx.textAlign = 'left';
+  }
+
+  function drawRevealed(){
+    var L = 70, Rr = W - 70, T = 40, B = SH - 58;
+    function gx(q){ return L + (q - MAPX0)/(MAPX1 - MAPX0)*(Rr - L); }
+    function gy(q){ return B - (q - MAPY0)/(MAPY1 - MAPY0)*(B - T); }
+
+    sx.drawImage(mapCanvas, L, T, Rr - L, B - T);
+    sx.strokeStyle = '#C6CDD5'; sx.lineWidth = 1;
+    sx.strokeRect(L, T, Rr - L, B - T);
+
+    // trails
+    function trail(pts, col){
+      if (pts.length < 2) return;
+      sx.beginPath();
+      for (var i = 0; i < pts.length; i++){
+        var X = gx(pts[i][0]), Y = gy(pts[i][1]);
+        if (i === 0) sx.moveTo(X, Y); else sx.lineTo(X, Y);
+      }
+      sx.strokeStyle = col; sx.lineWidth = 2.2; sx.stroke();
+    }
+    trail(trailF, 'rgba(90,160,235,.95)');
+    trail(trailB, 'rgba(240,120,110,.95)');
+
+    // walkers
+    for (var r = 0; r < R; r++){
+      sx.beginPath(); sx.arc(gx(P[r].x), gy(P[r].y), 6.5, 0, 6.2832);
+      sx.fillStyle = '#fff'; sx.fill();
+      sx.strokeStyle = phase === 'back' ? '#9E2B25' : '#1B4D8F';
+      sx.lineWidth = 2.4; sx.stroke();
+    }
+
+    // gate annotation
+    sx.save();
+    sx.setLineDash([4, 5]); sx.strokeStyle = 'rgba(255,255,255,.55)'; sx.lineWidth = 1.4;
+    sx.beginPath(); sx.moveTo(L, gy(0.5)); sx.lineTo(Rr, gy(0.5)); sx.stroke();
+    sx.restore();
+
+    sx.fillStyle = '#4A525C';
+    sx.font = '500 17px "Archivo", system-ui, sans-serif';
+    sx.textAlign = 'left';
+    sx.fillText('x — the coordinate you chose', L, SH - 24);
+    sx.save();
+    sx.translate(L - 22, (T + B)/2); sx.rotate(-Math.PI/2);
+    sx.textAlign = 'center';
+    sx.fillText('y — the gate', 0, 0);
+    sx.restore();
+    sx.textAlign = 'left';
+    sx.fillStyle = '#fff';
+    sx.font = '600 16px "Archivo", system-ui, sans-serif';
+    sx.fillText('gate open above this line', L + 12, gy(0.5) - 10);
+  }
+
+  // --- profile plot ------------------------------------------------------
+  function drawPlot(){
+    var PW = plot.width, PH = plot.height;
+    px.clearRect(0, 0, PW, PH);
+    var L = 76, Rr = PW - 24, T = 22, B = PH - 46;
+    var VLO = -3, VHI = 8;
+    function gx(q){ return L + (q - XA)/(XB - XA)*(Rr - L); }
+    function gy(v){ return B - (v - VLO)/(VHI - VLO)*(B - T); }
+
+    px.strokeStyle = '#EEF1F4'; px.lineWidth = 1;
+    px.fillStyle = '#4A525C';
+    px.font = '500 14px "JetBrains Mono", monospace';
+    px.textAlign = 'right';
+    for (var v = VLO; v <= VHI; v += 2){
+      px.beginPath(); px.moveTo(L, gy(v)); px.lineTo(Rr, gy(v)); px.stroke();
+      px.fillText(v.toFixed(0), L - 9, gy(v) + 5);
+    }
+
+    function line(pts, col, wid){
+      if (!pts || pts.length < 2) return;
+      px.beginPath();
+      for (var i = 0; i < pts.length; i++){
+        var X = gx(pts[i][0]), Y = gy(Math.max(VLO, Math.min(VHI, pts[i][1])));
+        if (i === 0) px.moveTo(X, Y); else px.lineTo(X, Y);
+      }
+      px.strokeStyle = col; px.lineWidth = wid; px.stroke();
+    }
+
+    // the completed pair, then whatever is being traced now
+    line(lastF, '#1B4D8F', 2.8);
+    line(lastB, '#9E2B25', 2.8);
+    line(curF, 'rgba(27,77,143,.35)', 2);
+    if (curB.length > 1){
+      var tot = meanW(Wb);
+      line(curB.map(function(q){ return [q[0], q[1] - tot]; }), 'rgba(158,43,37,.35)', 2);
+    }
+
+    px.textAlign = 'center';
+    px.fillStyle = '#4A525C';
+    px.font = '500 14px "Archivo", system-ui, sans-serif';
+    px.fillText('the coordinate you chose', (L + Rr)/2, PH - 12);
+  }
+
+  // --- readouts ----------------------------------------------------------
+  function refresh(){
+    var pct = phase === 'eq' ? 0
+            : phase === 'fwd' ? 50*s/SWEEP
+            : 50 + 50*s/SWEEP;
+    elProg.style.width = pct.toFixed(0) + '%';
+    elProgLbl.textContent = phase === 'eq' ? 'settling…'
+                          : phase === 'fwd' ? 'sweeping out — ' + (2*pct).toFixed(0) + '%'
+                          : 'sweeping back — ' + (2*(pct - 50)).toFixed(0) + '%';
+
+    if (gap === null){
+      elGap.innerHTML = '—<span class="unit">kcal/mol</span>';
+      elGap.className = 'val';
+      elGapSub.textContent = 'waiting for the return sweep';
+      // the outward barrier is known long before the pair is complete
+      if (curF.length > 2){
+        var running = Math.max.apply(null, curF.map(function(q){ return q[1]; }));
+        elBF.textContent = running.toFixed(1);
+      } else elBF.textContent = '—';
+      elBR.textContent = '—';
+    } else {
+      elGap.innerHTML = gap.toFixed(1) + '<span class="unit">kcal/mol</span>';
+      elGap.className = 'val ' + (gap < 1.2 ? 'ok' : 'bad');
+      elGapSub.textContent = gap < 1.2
+        ? 'the two directions agree'
+        : 'the two directions disagree by this much';
+      elBF.textContent = barF.toFixed(1);
+      elBR.textContent = barR.toFixed(1);
+    }
+
+    var msg;
+    if (!revealed && gap === null){
+      msg = '<b>You have chosen one coordinate, and it looks reasonable.</b> ' +
+            'A restraint drags the system out and back, and the work it takes is the ' +
+            'profile. Watch whether the two curves land on top of each other.';
+    } else if (!revealed && gap < 1.2){
+      msg = '<b>Out and back agree.</b> Whatever else is going on in this system, it is ' +
+            'keeping up with the pull — so the profile you would report is trustworthy. ' +
+            'Now drag the gate speed down and run it again.';
+    } else if (!revealed){
+      msg = '<b>Two smooth curves. Two different answers.</b> Neither looks broken. ' +
+            'Neither is noisy. If you had run only the outward sweep you would have ' +
+            'published a barrier of ' + barF.toFixed(1) + ' kcal/mol and never suspected ' +
+            'a thing — the return sweep is the only reason you know something is wrong. ' +
+            'Now press reveal.';
+    } else if (gap !== null && gap >= 1.2){
+      msg = '<b>The gate never opened.</b> The restraint dragged the system straight ' +
+            'through the closed channel, along a path the system would never take on its ' +
+            'own, and the work that took is what your profile recorded. The barrier you ' +
+            'measured is real — it is just the barrier for the wrong mechanism.';
+    } else {
+      msg = '<b>Here the gate keeps up.</b> Watch it swing open before the crossing and ' +
+            'shut afterwards. The system takes the cheap path in both directions, so both ' +
+            'sweeps see the same landscape and the curves agree.';
+    }
+    elNote.innerHTML = msg;
+  }
+
+  // --- loop --------------------------------------------------------------
+  var reduce = window.matchMedia &&
+               window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce){ running = false; elPause.textContent = 'Run'; }
+
+  var tick = 0;
+  function frame(){
+    if (running) for (var i = 0; i < 520; i++) step();
+    drawScene();
+    if (++tick % 8 === 0){ drawPlot(); refresh(); }
+    requestAnimationFrame(frame);
+  }
+
+  // --- controls ----------------------------------------------------------
+  function setGate(v){
+    muY = Math.pow(10, -4.7 + v/100*5.0);
+    elGL.textContent = muY < 1e-3 ? 'frozen'
+                     : muY < 1e-2 ? 'very slow'
+                     : muY < 8e-2 ? 'slow'
+                     : muY < 5e-1 ? 'keeping up' : 'fast';
+    gap = null; barF = null; barR = null;
+    lastF = []; lastB = [];
+    restart();
+  }
+
+  elG.addEventListener('input', function(){ setGate(+elG.value); });
+
+  elReveal.addEventListener('click', function(){
+    revealed = !revealed;
+    elReveal.setAttribute('data-on', String(revealed));
+    elReveal.textContent = revealed ? 'Hide the second coordinate' : 'Reveal what happened';
+    elTag.textContent = revealed ? 'the full landscape' : 'measuring x only';
+    refresh();
+  });
+
+  document.querySelectorAll('.presets button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var p = b.getAttribute('data-p');
+      if (p === 'restart'){ gap = null; lastF = []; lastB = []; restart(); }
+      if (p === 'pause'){ running = !running; elPause.textContent = running ? 'Pause' : 'Run'; }
+    });
+  });
+
+  setGate(+elG.value);
+  drawPlot();
+  frame();
+})();
+</script>
+</body>
+</html>
