@@ -1,10 +1,10 @@
 site_name: Molecular Dynamics Simulation Workshop
 site_description: A hands-on introduction to molecular dynamics with GROMACS
 site_author: Clinical Biochemistry and Translational Medicine Laboratory
-site_url: https://cbtmldu.github.io/md-workshop/
+site_url: https://cbtmldu.github.io/simpli/
 
-repo_url: https://github.com/CBTMLDU/md-workshop
-repo_name: CBTMLDU/md-workshop
+repo_url: https://github.com/CBTMLDU/simpli
+repo_name: CBTMLDU/simpli
 docs_dir: build
 edit_uri: edit/main/docs/
 
