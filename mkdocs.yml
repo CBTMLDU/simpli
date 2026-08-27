@@ -48,7 +48,9 @@ nav:
   - 3. Running a simulation: 03-running-a-simulation.md
   - 4. Analysis: 04-analysis.md
   - 5. Advanced Sampling: 05-enhanced-sampling.md
-
+  - 6. Machine Learning in MD: 06-machine-learning.md
+  - 7. Back to the wet lab: 07-back-to-the-wet-lab.md
+  - 8. How to contribute: contributing.md
 markdown_extensions:
   - admonition
   - attr_list
