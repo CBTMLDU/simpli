@@ -53,7 +53,8 @@ Well, to be frank, there can be multiple molecules. More often than not,
 we’re dealing with a complex of molecules, and we’re interested in the
 interactions between the components of that complex — not to mention the
 solvent, the ions, or the hundreds if not thousands of lipid bilayer
-members if its a membrane embedded system — despite the name standing for “Protein Data Bank.” For very large systems, those with more than
+members if it's a membrane embedded system — despite the name standing
+for “Protein Data Bank.” For very large systems, those with more than
 99,999 atoms or more than 62 chains, we use the newer .cif file format.
 
 Although RCSB is one of the primary repositories where we can find most
@@ -69,6 +70,21 @@ descriptions there regarding the methods used to obtain the structure,
 its quality, and so on. If you scroll down, you will usually find the
 paper that led to the structure, which you might look at for a more
 detailed inspection.
+
+The first thing to look at is resolution — the number that tells you how
+much detail the experimental data actually supports, and therefore how
+far you should trust any individual atom you are about to hand to
+GROMACS. Roughly: below 2 Å side chains and ordered waters are well
+determined; between 2 and 3 Å the backbone is reliable but side-chain
+orientations are increasingly the crystallographer's interpretation;
+beyond 3 Å treat individual positions with real caution. But resolution
+is one global number, and quality is never uniform — a flexible loop, or
+the ligand itself, can be poorly determined in an otherwise excellent
+structure. So read everything the entry offers you: the validation
+report, B-factors and occupancies for the region you actually care
+about, the experimental details, and best of all the paper that produced
+the structure. Watch too for missing residues, since disordered loops
+are usually left out of the coordinate file rather than flagged.
 
 I will make a hand-waving gesture here — say, for example, how the
 structure was obtained could be relevant. If it was expressed in a
@@ -128,7 +144,7 @@ So how do we distinguish what to keep and what not to keep? By reviewing
 the literature and inspecting the pdb structure visually using a pdb
 viewing software.
 
-Now, to remove the artifacts ( crystallization ions and small molecules)
+Now, to remove the artifacts (crystallization ions and small molecules)
 we look for lines containing HETATM, the identifier that marks anything
 which is not a standard amino acid or nucleotide, and by reading the
 residue name. Then we remove the lines we don't want — simply deleting
@@ -136,10 +152,15 @@ by hand, with bash, or with tools like PyMOL or UCSF ChimeraX.
 
 #### 3.2.4.2 Resolving Alternate Locations
 
-Sometimes an atom vibrates between two positions, so the file includes
-both (marked as A and B in column 17). You must fix this, or your
-simulation software will crash. Always keep the 'A' version and delete
-the 'B' version, as 'A' represents the most common position
+Sometimes a side chain sits in one arrangement in some copies of the
+crystal and a different one in others, so the file includes both
+(marked as A and B in column 17). This is static disorder across the
+many molecules in the crystal, not a single atom moving back and forth.
+You must resolve it before building, or pdb2gmx will stop with a
+duplicate-atom error. Keep the conformer with the higher occupancy —
+listed in columns 55–60 — and delete the other. That is usually the 'A'
+version, but check rather than assume, since the occupancies are
+sometimes close to equal.
 
 #### 3.2.4.3 Disordered and missing regions
 
@@ -232,18 +253,29 @@ feed in what you learned from the literature or from experiments, such
 as residues known from mutagenesis to sit at the interface, and it
 drives the docking toward poses consistent with that evidence.
 
-Machine-learning tools like AlphaFold3 are a different case. They were
-trained on all known structures, so they have effectively absorbed how
-similar complexes bind, and they predict the complex directly rather
-than searching a pocket you define. This often works well, but it gives
-you one confident answer with no alternatives and no way to see why.
+Co-folding models are a different case, and increasingly the default
+first move. AlphaFold3, Boltz, and Chai-1 do not search a pocket you
+define — you give them a sequence and a ligand, and they generate the
+complex directly, with the protein free to rearrange as the prediction
+forms, something a rigid-receptor tool like Vina simply cannot do. On
+standard benchmarks they recover native poses considerably more often
+than classical docking, and they handle DNA, RNA, and ions as partners
+too. But they are trained on the PDB and lean heavily on that memory:
+accuracy falls off for ligands and pockets unlike anything in the
+training set, and allosteric sites fare worse than orthosteric ones. The
+predicted ligand geometry is also not always physically clean — slightly
+wrong bond lengths and angles, non-planar rings — which is survivable in
+a figure but not as input to a force field, so check the geometry and
+minimise carefully before building. Read the confidence scores seriously
+rather than as decoration; they tell you when the model is guessing.
 
 So the practical order is simple. Look up the literature first. If a
 structure of your exact complex exists, use it — a real experimental
 complex beats any prediction. If not, look for a related protein bound
-to the same kind of partner and use it as a template. If nothing
-suitable exists, then fall back on blind docking, and treat the result
-with appropriate caution.
+to the same kind of partner and use it as a template, which most
+co-folding tools will accept as an input restraint. If nothing suitable
+exists, then fall back on co-folding or blind docking, and treat the
+result with appropriate caution either way.
 
 And whichever route your pose came from — literature or a docking tool —
 if you have the computing power, do not rely on a single starting
@@ -288,7 +320,7 @@ what we claim. The honest way to put it is this: our simulation tells us
 what the mutation does to the folded structure, not whether that
 structure is ever reached. That is still a useful and legitimate
 question. It is simply a narrower one than "what does this mutation do
-in the cell.
+in the cell."
 
 #### 3.2.6.1 Tools for introducing mutations
 
@@ -594,9 +626,9 @@ concentration, not just the bare minimum needed for neutrality.
 ```bash
 gmx grompp -f ions.mdp -c solvated.gro -p topol.top -o ions.tpr
 
-gmx genion -s ions.tpr -o solvated_ions.gro -p topol.top -pname NA
+gmx genion -s ions.tpr -o solvated_ions.gro -p topol.top \
+           -pname NA -nname CL -neutral -conc 0.15
 ```
--nname CL -neutral -conc 0.15
 
 
 Notice that `genion` takes a `.tpr` file, not a `.gro`. That is
@@ -727,7 +759,8 @@ small step at a time, and stops when nothing is being pushed too hard.
 It also does not find the best structure. It finds the nearest
 comfortable one. Minimisation only goes downhill, so it settles into
 whichever local minimum happens to be closest to where you started. That
-is exactly what we want here — we are removing clashes, not searching for a better fold.
+is exactly what we want here — we are removing clashes, not searching
+for a better fold.
 
 **Running it**
 
@@ -744,6 +777,32 @@ This is our first proper meeting with mdrun, which is the part of
 GROMACS that does the actual computing. The -deffnm em flag simply tells
 it to name everything it produces em.something, which saves typing out
 each output file.
+
+**What mdrun leaves behind**
+
+It is worth noting what comes out, because every run from here on writes
+the same small family of files, sharing the name we gave with -deffnm:
+
+em.gro — the final coordinates. This is what we hand to the next step.
+
+em.log — a plain text log of what happened. Worth opening when something
+goes wrong.
+
+em.edr — the energy file, recording values like energy, temperature and
+pressure through the run. It is binary, so we use gmx energy to pull
+numbers out of it.
+
+em.trr — the trajectory file. Here it is nearly empty, because our
+settings file never asked for frames to be saved.
+
+That last point is worth remembering: trajectories are only written if
+you ask for them. Our minim.mdp said nothing about saving coordinates,
+so nothing was saved. From the equilibration stage onward we will start
+asking.
+
+Note also that none of these appeared during the earlier steps. grompp
+and genion only shuffle files around — nothing was simulated, so there
+was nothing to record.
 
 The settings file, minim.mdp, looks much like the ions.mdp we already
 examined — but this time the settings are real, and the calculation
@@ -875,34 +934,8 @@ gmx mdrun -v -deffnm nvt
 ```
 
 
-A hundred picoseconds is a common length for this stage — long enough for the temperature to settle, short enough to finish quickly.
-
-What mdrun leaves behind
-
-This is our first time running mdrun, and it is worth noting what comes
-out. Every run writes a small family of files sharing the name we gave
-with -deffnm:
-
-em.gro — the final coordinates. This is what we hand to the next step.
-
-em.log — a plain text log of what happened. Worth opening when something
-goes wrong.
-
-em.edr — the energy file, recording values like energy, temperature and
-pressure through the run. It is binary, so we use gmx energy to pull
-numbers out of it.
-
-em.trr — the trajectory file. Here it is nearly empty, because our
-settings file never asked for frames to be saved.
-
-That last point is worth remembering: trajectories are only written if
-you ask for them. Our minim.mdp said nothing about saving coordinates,
-so nothing was saved. From the equilibration stage onward we will start
-asking.
-
-Note also that none of these appeared during the earlier steps. grompp
-and genion only shuffle files around — nothing was simulated, so there
-was nothing to record.
+A hundred picoseconds is a common length for this stage — long enough
+for the temperature to settle, short enough to finish quickly.
 
 **Checking that it worked**
 
@@ -950,6 +983,18 @@ This is called the isothermal-isobaric ensemble, and it is the one that
 most closely resembles a real experiment. A test tube on a bench is at
 constant temperature and constant atmospheric pressure, with the liquid
 free to occupy whatever volume it likes.
+
+**Choosing a barostat**
+
+The same caution we gave for thermostats applies here. The
+**Berendsen** barostat brings the volume to the right value quickly
+and robustly, which makes it a reasonable choice for equilibration, but
+it does not produce a correct ensemble, so it should not be used for a
+production run you intend to analyse. For that, use **C-rescale**,
+which is the modern recommendation and is stable enough to use from the
+start, or **Parrinello-Rahman**, which is well established but can
+oscillate badly if it is switched on before the system is already close
+to the right density.
 
 Handing over from the previous run
 
@@ -1034,7 +1079,8 @@ This is the one genuinely new decision at this stage, and it deserves a
 moment's thought before writing the settings file.
 
 Every simulation writes out snapshots as it runs, and you choose how
-often. Save too frequently and you get enormous files and a slower run, for detail nobody will ever look at. Save too rarely and the motion you
+often. Save too frequently and you get enormous files and a slower run,
+for detail nobody will ever look at. Save too rarely and the motion you
 were trying to observe simply is not in your trajectory.
 
 So think about your analysis first. If you are measuring how a large
@@ -1101,9 +1147,9 @@ use it properly:
 
 
 ```bash
-gmx mdrun -deffnm md -nb gpu -pme gpu -bonded gpu -update gpu -ntmpi 1
+gmx mdrun -deffnm md -nb gpu -pme gpu -bonded gpu -update gpu \
+          -ntmpi 1 -ntomp 8 -pin on
 ```
--ntomp 8 -pin on
 
 
 Each flag moves a different part of the calculation onto the graphics
