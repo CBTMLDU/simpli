@@ -47,6 +47,7 @@ nav:
   - 2. Scope and limitations: 02-scope-and-limitations.md
   - 3. Running a simulation: 03-running-a-simulation.md
   - 4. Analysis: 04-analysis.md
+  - 5. Advanced Sampling: 05-enhanced-sampling.md
 
 markdown_extensions:
   - admonition
